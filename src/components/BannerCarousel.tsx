@@ -35,7 +35,7 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
         {banners.map((b, i) => (
           <div key={b.id} className="relative w-full shrink-0 snap-start" aria-roledescription="slide" aria-label={`${i + 1} dari ${banners.length}`}>
             <div className="relative aspect-[4/5] sm:aspect-[16/7]">
-              <ProductImage src={b.imageUrl} alt="" fill priority={i === 0} sizes="100vw" className="object-cover object-right" />
+              <ProductImage src={b.imageUrl} alt="" fill preload={i === 0} fetchPriority={i === 0 ? "high" : "auto"} sizes="100vw" className="object-cover object-right" />
               <div className="absolute inset-0 bg-gradient-to-t from-blush from-35% via-blush/85 to-blush/10 sm:bg-none" />
               <div className="container-page absolute inset-0 flex items-end pb-12 sm:items-center sm:pb-0">
                 <div className="max-w-md">

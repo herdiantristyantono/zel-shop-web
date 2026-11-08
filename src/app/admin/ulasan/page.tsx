@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ReviewModeration } from "@/components/admin/ReviewModeration";
@@ -67,6 +68,17 @@ async function Reviews({ searchParams }: PageProps<"/admin/ulasan">) {
                 <Badge tone="plum">Pembeli terverifikasi</Badge>
               </div>
               {r.body ? <p className="mt-2 whitespace-pre-line text-ink">{r.body}</p> : <p className="mt-2 text-sm italic text-muted">(tanpa teks)</p>}
+              {r.images.length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-2" aria-label="Foto ulasan">
+                  {r.images.map((img, i) => (
+                    <li key={img.id}>
+                      <a href={img.url} target="_blank" rel="noopener noreferrer" className="relative block h-24 w-24 overflow-hidden rounded-lg border border-line bg-cream" aria-label={`Buka foto ${i + 1} ukuran penuh`}>
+                        <Image src={img.url} alt="" fill sizes="96px" className="object-cover" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <p className="mt-2 text-xs text-muted">
                 {r.user.name} ({r.user.email}) · {dateTime.format(r.createdAt)} ·{" "}
                 <Link href={`/admin/pesanan/${r.orderItem.order.id}`} className="font-mono underline">{r.orderItem.order.orderNumber}</Link>

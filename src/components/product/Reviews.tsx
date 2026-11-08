@@ -1,5 +1,6 @@
 import type { ProductDetail } from "@/lib/catalog";
 import { Stars } from "../Stars";
+import { ReviewPhotos } from "./ReviewPhotos";
 
 const dateFmt = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" });
 
@@ -28,6 +29,7 @@ export function Reviews({ product }: { product: ProductDetail }) {
                   <time className="text-xs text-muted" dateTime={r.createdAt}>{dateFmt.format(new Date(r.createdAt))}</time>
                 </div>
                 {r.body && <p className="mt-3 leading-relaxed text-ink">{r.body}</p>}
+                <ReviewPhotos images={r.images} author={r.author} />
                 {r.adminReply && (
                   <div className="mt-3 rounded-xl bg-blush p-4 text-sm">
                     <p className="font-medium text-plum">Balasan Zel Shop</p>

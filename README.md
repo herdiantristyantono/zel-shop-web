@@ -14,6 +14,19 @@ Next.js 16 (App Router, Cache Components) · TypeScript · Tailwind CSS 4 · Pos
 - [x] **Tahap 2 — Keranjang & checkout:** keranjang (tamu + digabung saat login, validasi stok realtime), wishlist, buku alamat, checkout 3 langkah dengan ongkir **Biteship**, kupon & gratis ongkir, pemotongan stok atomik, halaman status pesanan (juga untuk tamu), riwayat pesanan, email konfirmasi
 - [x] **Tahap 3 — Pembayaran & pengiriman:** **Midtrans** Snap + webhook terverifikasi, batas waktu bayar & pembatalan otomatis (stok & kupon kembali), lacak resi Biteship, "pesanan diterima", ulasan pembeli terverifikasi, notifikasi email + WhatsApp (Fonnte)
 - [x] **Tahap 4 — Dashboard admin:** peran Owner/Admin/Staf Gudang, ringkasan & grafik, produk + multi foto (Cloudinary) + varian/SKU, stok + riwayat + import/export CSV, pesanan (resi, catatan, invoice & label cetak/PDF), pelanggan, promo (kupon, flash sale, banner), moderasi ulasan, laporan (CSV/PDF), pengaturan toko & tim, notifikasi wishlist, GA4 & Meta Pixel dengan persetujuan cookie
+- [x] **Penyempurnaan:** foto pada ulasan pembeli (maks. 3, ikut dimoderasi admin), audit Lighthouse mobile
+
+**Lighthouse (mobile, build produksi lokal, 8 Nov 2026)** — Performa / Aksesibilitas / Best practices / SEO:
+
+| Halaman | Skor |
+|---|---|
+| Beranda `/` | 93 / 100 / 100 / 100 |
+| Semua produk `/produk` | 95 / 100 / 100 / 100 |
+| Detail produk | 100 / 100 / 100 / 100 |
+| Kategori | 96 / 100 / 100 / 100 |
+| Promo | 100 / 100 / 100 / 100 |
+
+Keranjang, checkout, akun, dan admin sengaja `noindex` (skor SEO rendah di sana memang disengaja). Skor di produksi bergantung pada foto asli — unggah lewat Cloudinary agar otomatis dikompres ke WebP/AVIF.
 
 ## Struktur folder
 

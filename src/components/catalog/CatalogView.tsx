@@ -53,7 +53,10 @@ export async function CatalogView({ searchParams, category }: { searchParams: Pr
             <Link href="/produk" className="btn-primary mt-6">Lihat semua produk</Link>
           </div>
         ) : (
-          <ProductGrid products={result.items} priorityCount={4} />
+          <>
+            <h2 className="sr-only">Daftar produk</h2>
+            <ProductGrid products={result.items} priorityCount={4} />
+          </>
         )}
         {result.pageCount > 1 && (
           <nav className="mt-12 flex justify-center gap-2" aria-label="Halaman">

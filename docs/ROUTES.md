@@ -19,7 +19,7 @@ Status: ✅ selesai · 🔜 tahap berikutnya
 | `/wishlist` | Wishlist: pindah ke keranjang, preferensi notifikasi diskon/stok | ✅ (pengiriman notifikasi: T4) |
 | `/keranjang` | Keranjang: ubah jumlah, hapus, validasi stok realtime, progres gratis ongkir | ✅ |
 | `/checkout` | Alamat → Pengiriman (ongkir Biteship) → Pembayaran (kupon, metode) → buat pesanan | ✅ |
-| `/pesanan/[orderNumber]?token=` | Status pesanan, bayar via Midtrans, cek status, batalkan, lacak resi, "pesanan diterima", tulis ulasan | ✅ |
+| `/pesanan/[orderNumber]?token=` | Status pesanan, bayar via Midtrans, cek status, batalkan, lacak resi, "pesanan diterima", tulis ulasan + foto (maks. 3) | ✅ |
 
 ### Parameter filter `/produk`
 `q` · `kategori=a,b` · `min` · `max` · `warna=Hitam,Krem` · `ukuran=MINI,SMALL,MEDIUM,LARGE` · `bahan=kulit-sintetis,kulit-asli,kanvas,satin,nilon` · `rating=4` · `diskon=1` · `sort=terbaru|terlaris|termurah|termahal|rating` · `page`
@@ -53,6 +53,7 @@ Akses dicek di server untuk setiap halaman **dan** setiap Server Action/endpoint
 | `/admin/laporan` | Periode bebas, per hari/bulan, per kategori, per produk; export CSV (Excel) & cetak PDF | Owner, Admin |
 | `/admin/pengaturan` | Info toko, WhatsApp, alamat asal kirim, kurir aktif, gratis ongkir, metode & batas bayar, media sosial, editor halaman kebijakan, tim admin | Owner |
 | `/api/admin/upload` | Upload lokal → WebP (hanya pengembangan, tanpa Cloudinary) | Owner, Admin |
+| `/api/reviews/upload?item=` | Upload lokal foto ulasan → WebP (hanya pengembangan); hanya pemilik item pesanan selesai yang belum diulas | Pembeli |
 | `/api/admin/products.csv`, `/api/admin/report.csv` | Export CSV | Staf+ / Owner, Admin |
 
 ## Server Actions (`src/actions/`)
@@ -63,7 +64,7 @@ Akses dicek di server untuk setiap halaman **dan** setiap Server Action/endpoint
 | `address.ts` | `saveAddress`, `deleteAddress`, `setDefaultAddress` |
 | `checkout.ts` | `findAreas`, `getShippingOptions`, `previewTotals`, `placeOrder` |
 | `admin/*.ts` | products, stock (adjust & import CSV), orders, promo, reviews, settings, upload — semua lewat `adminAction(perm, …)` |
-| `order.ts` | `startPayment` (Snap), `syncPayment`, `cancelMyOrder`, `confirmReceived`, `submitReview`, `simulatePayment` (hanya lokal) |
+| `order.ts` | `startPayment` (Snap), `syncPayment`, `cancelMyOrder`, `confirmReceived`, `submitReview` (+ foto), `getReviewUploadTarget`, `simulatePayment` (hanya lokal) |
 
 `placeOrder` menghitung ulang semua harga, ongkir (memanggil ulang Biteship), dan kupon di server; memotong stok secara atomik (`stock >= qty`) dalam satu transaksi bersama kuota kupon, pembuatan pesanan, dan pengosongan keranjang.
 

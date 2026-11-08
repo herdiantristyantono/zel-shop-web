@@ -206,7 +206,7 @@ function Gallery({ images, name }: { images: ProductDetail["gallery"]; name: str
                 src={img.url}
                 alt={img.alt}
                 fill
-                priority={i === 0}
+                preload={i === 0} fetchPriority={i === 0 ? "high" : "auto"}
                 sizes="(min-width:1024px) 50vw, 100vw"
                 className="object-cover transition-transform duration-200"
                 style={zoom && i === index ? { transform: "scale(2)", transformOrigin: `${zoom.x}% ${zoom.y}%` } : undefined}

@@ -16,12 +16,13 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
               alt={img.alt}
               fill
               sizes="(min-width:1024px) 25vw, (min-width:640px) 33vw, 50vw"
-              priority={priority}
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "auto"}
               className="object-cover transition-opacity duration-500 group-hover:opacity-0"
             />
           )}
           {hover && (
-            <ProductImage src={hover.url} alt="" fill sizes="(min-width:1024px) 25vw, 50vw" className="object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+            <ProductImage src={hover.url} alt="" fill sizes="(min-width:1024px) 25vw, 50vw" className="hidden object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100 [@media(hover:hover)]:block" />
           )}
           <div className="absolute left-2 top-2 flex flex-col gap-1">
             {product.isFlashSale && <span className="rounded-full bg-plum px-2.5 py-1 text-[11px] font-semibold text-white">Flash Sale</span>}

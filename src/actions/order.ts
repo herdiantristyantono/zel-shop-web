@@ -9,6 +9,9 @@ import { cancelPendingOrder, completeOrder, markOrderPaid } from "@/lib/order-se
 import { getOrderForViewer } from "@/lib/orders";
 import { applyMidtransStatus } from "@/lib/payments";
 import { prisma } from "@/lib/prisma";
+import { findReviewableItem, MAX_REVIEW_PHOTOS } from "@/lib/reviews";
+import { cloudinaryDeliveryUrl, cloudinarySignature, isCloudinaryEnabled, isOwnUploadUrl } from "@/lib/upload";
+import type { UploadTarget } from "@/components/upload-client";
 
 type Result = { ok: true; url?: string; message?: string } | { ok: false; error: string };
 const ref = z.object({ orderNumber: z.string().min(5).max(30), token: z.string().max(80).nullable().optional() });
@@ -99,21 +102,48 @@ const reviewSchema = z.object({
   orderItemId: z.string().min(1).max(40),
   rating: z.number().int().min(1).max(5),
   body: z.string().trim().max(1000).optional(),
+  images: z.array(z.string().max(500)).max(MAX_REVIEW_PHOTOS).optional(),
 });
 
-/** Ulasan hanya dari pembeli terverifikasi (pesanan selesai, satu ulasan per item). Menunggu moderasi admin. */
+/** Izin unggah foto ulasan — hanya untuk pembeli dengan item yang bisa diulas. */
+export async function getReviewUploadTarget(orderItemId: string): Promise<{ ok: true; data: UploadTarget } | { ok: false; error: string }> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Masuk untuk mengunggah foto." };
+  if (typeof orderItemId !== "string" || !(await findReviewableItem(session.user.id, orderItemId))) return { ok: false, error: "Ulasan hanya untuk pesanan Anda yang sudah selesai." };
+  if (isCloudinaryEnabled()) return { ok: true, data: { mode: "cloudinary", ...cloudinarySignature("reviews") } };
+  if (process.env.NODE_ENV !== "production") return { ok: true, data: { mode: "local" } };
+  return { ok: true, data: { mode: "disabled" } };
+}
+
+export async function toReviewDeliveryUrl(secureUrl: string) {
+  if (typeof secureUrl !== "string" || !/^https:\/\/res\.cloudinary\.com\/[\w-]+\/image\/upload\/(v\d+\/)?zelshop\/reviews\//.test(secureUrl)) return "";
+  return cloudinaryDeliveryUrl(secureUrl);
+}
+
+/** Ulasan hanya untuk pembeli terverifikasi: item milik user, pesanan COMPLETED, satu ulasan per item. */
 export async function submitReview(input: z.input<typeof reviewSchema>): Promise<Result> {
   const session = await getSession();
   if (!session) return { ok: false, error: "Masuk untuk menulis ulasan." };
   const p = reviewSchema.safeParse(input);
-  if (!p.success) return { ok: false, error: "Beri rating 1–5 bintang." };
-  const item = await prisma.orderItem.findFirst({
-    where: { id: p.data.orderItemId, order: { userId: session.user.id, status: "COMPLETED" } },
-    include: { review: { select: { id: true } } },
-  });
-  if (!item || !item.productId) return { ok: false, error: "Ulasan hanya untuk pesanan Anda yang sudah selesai." };
-  if (item.review) return { ok: false, error: "Anda sudah mengulas produk ini." };
-  await prisma.review.create({ data: { productId: item.productId, userId: session.user.id, orderItemId: item.id, rating: p.data.rating, body: p.data.body || null } });
+  if (!p.success) return { ok: false, error: "Beri rating 1–5 bintang (maks. 3 foto)." };
+  const images = [...new Set(p.data.images ?? [])];
+  if (images.some((u) => !isOwnUploadUrl(u, "reviews"))) return { ok: false, error: "Foto tidak valid. Unggah ulang fotonya." };
+  const item = await findReviewableItem(session.user.id, p.data.orderItemId);
+  if (!item) return { ok: false, error: "Ulasan hanya untuk pesanan Anda yang sudah selesai dan belum diulas." };
+  try {
+    await prisma.review.create({
+      data: {
+        productId: item.productId,
+        userId: session.user.id,
+        orderItemId: item.id,
+        rating: p.data.rating,
+        body: p.data.body || null,
+        images: { create: images.map((url) => ({ url })) },
+      },
+    });
+  } catch {
+    return { ok: false, error: "Anda sudah mengulas produk ini." }; // orderItemId unik (kirim ganda)
+  }
   refresh();
   return { ok: true, message: "Terima kasih! Ulasan akan tampil setelah ditinjau admin." };
 }
