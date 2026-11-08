@@ -1,6 +1,6 @@
 # Daftar Halaman & Route
 
-Status: ✅ selesai (Tahap 1) · 🔜 tahap berikutnya
+Status: ✅ selesai · 🔜 tahap berikutnya
 
 ## Toko (pengunjung & pembeli)
 | Route | Halaman | Status |
@@ -14,12 +14,12 @@ Status: ✅ selesai (Tahap 1) · 🔜 tahap berikutnya
 | `/masuk`, `/daftar` | Login & daftar (email/password + Google) | ✅ |
 | `/lupa-password`, `/reset-password` | Reset kata sandi via email | ✅ |
 | `/akun` | Ringkasan akun | ✅ |
-| `/akun/pesanan`, `/akun/pesanan/[orderNumber]` | Riwayat & detail pesanan, lacak resi | 🔜 T2/T3 |
-| `/akun/alamat` | Buku alamat | 🔜 T2 |
-| `/wishlist` | Wishlist | 🔜 T2 |
-| `/keranjang` | Keranjang | 🔜 T2 |
-| `/checkout` | Alamat → Pengiriman → Pembayaran | 🔜 T2/T3 |
-| `/pesanan/[orderNumber]?token=` | Status pesanan tamu | 🔜 T2 |
+| `/akun/pesanan` | Riwayat pesanan (detail di `/pesanan/[orderNumber]`) | ✅ (lacak resi live: T3) |
+| `/akun/alamat` | Buku alamat (tambah/ubah/hapus/alamat utama, pencarian kecamatan Biteship) | ✅ |
+| `/wishlist` | Wishlist: pindah ke keranjang, preferensi notifikasi diskon/stok | ✅ (pengiriman notifikasi: T4) |
+| `/keranjang` | Keranjang: ubah jumlah, hapus, validasi stok realtime, progres gratis ongkir | ✅ |
+| `/checkout` | Alamat → Pengiriman (ongkir Biteship) → Pembayaran (kupon, metode) → buat pesanan | ✅ (bayar via Midtrans: T3) |
+| `/pesanan/[orderNumber]?token=` | Status pesanan (pemilik akun, atau tamu dengan token rahasia) | ✅ |
 
 ### Parameter filter `/produk`
 `q` · `kategori=a,b` · `min` · `max` · `warna=Hitam,Krem` · `ukuran=MINI,SMALL,MEDIUM,LARGE` · `bahan=kulit-sintetis,kulit-asli,kanvas,satin,nilon` · `rating=4` · `diskon=1` · `sort=terbaru|terlaris|termurah|termahal|rating` · `page`
@@ -29,8 +29,9 @@ Status: ✅ selesai (Tahap 1) · 🔜 tahap berikutnya
 |---|---|---|
 | `/api/auth/*` | Better Auth (login, daftar, Google OAuth, reset password, sesi) | ✅ |
 | `/api/search?q=` | Autocomplete pencarian | ✅ |
-| `/api/shipping/areas`, `/api/shipping/rates` | Cari wilayah & hitung ongkir | 🔜 T3 |
-| `/api/webhooks/midtrans` atau `/api/webhooks/xendit` | Update status pembayaran otomatis | 🔜 T3 |
+| Server Actions `findAreas`, `getShippingOptions` | Cari wilayah & hitung ongkir (Biteship) | ✅ |
+| `/api/me/wishlist` | ID produk di wishlist user (status tombol hati) | ✅ |
+| `/api/webhooks/midtrans` | Update status pembayaran otomatis | 🔜 T3 |
 | `/api/cron/expire-orders` | Batalkan pesanan kedaluwarsa & kembalikan stok | 🔜 T3 |
 
 ## SEO
@@ -48,3 +49,13 @@ Status: ✅ selesai (Tahap 1) · 🔜 tahap berikutnya
 | `/admin/ulasan` | Setujui / sembunyikan / balas | Owner, Admin |
 | `/admin/laporan` | Laporan per periode/produk/kategori, export Excel/PDF | Owner, Admin |
 | `/admin/pengaturan` | Info toko, kurir, pembayaran, halaman kebijakan, akun admin | Owner |
+
+## Server Actions (`src/actions/`)
+| File | Fungsi |
+|---|---|
+| `cart.ts` | `addToCart`, `updateCartItem`, `removeCartItem` — validasi stok di server |
+| `wishlist.ts` | `toggleWishlist`, `moveWishlistToCart`, `setWishlistNotify` |
+| `address.ts` | `saveAddress`, `deleteAddress`, `setDefaultAddress` |
+| `checkout.ts` | `findAreas`, `getShippingOptions`, `previewTotals`, `placeOrder` |
+
+`placeOrder` menghitung ulang semua harga, ongkir (memanggil ulang Biteship), dan kupon di server; memotong stok secara atomik (`stock >= qty`) dalam satu transaksi bersama kuota kupon, pembuatan pesanan, dan pengosongan keranjang.

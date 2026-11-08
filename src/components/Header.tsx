@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getCategories } from "@/lib/catalog";
 import { AccountLink } from "./AccountLink";
-import { BagIcon, HeartIcon } from "./icons";
+import { CartCount, CartLinkShell } from "./cart/CartCount";
+import { HeartIcon } from "./icons";
 import { Logo } from "./Logo";
 import { MobileMenu } from "./MobileMenu";
 import { SearchBox } from "./SearchBox";
@@ -13,22 +15,22 @@ export async function Header() {
       <div className="bg-plum px-4 py-2 text-center text-xs tracking-wide text-white">
         Gratis ongkir min. belanja Rp 300.000 · Kode <strong>ZELBARU</strong> diskon 10% pembelian pertama
       </div>
-      <div className="container-page flex h-16 items-center gap-2 lg:h-20 lg:gap-6">
+      <div className="container-page flex h-16 items-center gap-1 sm:gap-2 lg:h-20 lg:gap-6">
         <MobileMenu categories={categories} />
-        <div className="flex-1 lg:flex-none">
+        <div className="min-w-0 flex-1 lg:flex-none">
           <Logo />
         </div>
         <div className="hidden max-w-md flex-1 lg:block">
           <SearchBox />
         </div>
-        <nav className="ml-auto flex items-center" aria-label="Akun & belanja">
+        <nav className="ml-auto flex shrink-0 items-center" aria-label="Akun & belanja">
           <AccountLink />
           <Link href="/wishlist" className="hidden h-11 w-11 items-center justify-center rounded-full hover:bg-blush sm:flex" aria-label="Wishlist">
             <HeartIcon />
           </Link>
-          <Link href="/keranjang" className="relative flex h-11 w-11 items-center justify-center rounded-full hover:bg-blush" aria-label="Keranjang belanja">
-            <BagIcon />
-          </Link>
+          <Suspense fallback={<CartLinkShell />}>
+            <CartCount />
+          </Suspense>
         </nav>
       </div>
       <nav className="hidden border-t border-line lg:block" aria-label="Kategori">

@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { addToCart } from "@/actions/cart";
 import type { ProductDetail } from "@/lib/catalog";
 import { site, whatsappLink } from "@/lib/site";
 import { Countdown } from "../Countdown";
-import { ChevronLeft, ChevronRight, CloseIcon, HeartIcon, WhatsAppIcon } from "../icons";
+import { ChevronLeft, ChevronRight, CloseIcon, WhatsAppIcon } from "../icons";
 import { Price } from "../Price";
 import { ProductImage } from "../ProductImage";
 import { Stars } from "../Stars";
+import { WishlistButton } from "./WishlistButton";
 
 type Props = { product: ProductDetail };
 
@@ -15,6 +18,8 @@ export function ProductInteractive({ product }: Props) {
   const firstInStock = product.variants.find((v) => v.stock > 0) ?? product.variants[0];
   const [variantId, setVariantId] = useState(firstInStock?.id);
   const [qty, setQty] = useState(1);
+  const [pending, start] = useTransition();
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const variant = product.variants.find((v) => v.id === variantId);
 
   // Foto warna terpilih tampil lebih dulu
@@ -70,7 +75,11 @@ export function ProductInteractive({ product }: Props) {
                 <button
                   key={v.id}
                   type="button"
-                  onClick={() => (setVariantId(v.id), setQty(1))}
+                  onClick={() => {
+                    setVariantId(v.id);
+                    setQty(1);
+                    setFeedback(null);
+                  }}
                   aria-pressed={selected}
                   aria-label={`${v.colorName}${v.stock === 0 ? " (stok habis)" : ""}`}
                   title={v.colorName}
@@ -94,12 +103,34 @@ export function ProductInteractive({ product }: Props) {
             <span className="w-8 text-center tabular-nums" aria-live="polite">{qty}</span>
             <button type="button" onClick={() => setQty((q) => Math.min(stock, q + 1))} disabled={qty >= stock} className="h-12 w-12 text-xl text-ink disabled:opacity-40" aria-label="Tambah jumlah">+</button>
           </div>
-          <button type="button" disabled={stock === 0} className="btn-primary h-12 flex-1 whitespace-nowrap px-4" data-variant-id={variantId} data-qty={qty}>
-            {stock === 0 ? "Stok Habis" : "Tambah ke Keranjang"}
+          <button
+            type="button"
+            disabled={stock === 0 || pending}
+            className="btn-primary h-12 flex-1 whitespace-nowrap px-4"
+            onClick={() =>
+              start(async () => {
+                if (!variantId) return;
+                const res = await addToCart({ variantId, quantity: qty });
+                setFeedback(res.ok ? { ok: true, text: res.message ?? "Ditambahkan" } : { ok: false, text: res.error });
+              })
+            }
+          >
+            {stock === 0 ? "Stok Habis" : pending ? "Menambahkan…" : "Tambah ke Keranjang"}
           </button>
-          <button type="button" className="flex h-12 w-12 items-center justify-center rounded-full border border-line bg-white text-plum hover:bg-blush" aria-label="Simpan ke wishlist">
-            <HeartIcon />
-          </button>
+          <WishlistButton productId={product.id} />
+        </div>
+
+        <div aria-live="polite">
+          {feedback && (
+            <p className={`mt-3 flex flex-wrap items-center gap-x-3 rounded-xl px-4 py-3 text-sm ${feedback.ok ? "bg-plum-soft text-plum" : "bg-[#FBE9EC] text-danger"}`}>
+              {feedback.text}
+              {feedback.ok && (
+                <Link href="/keranjang" className="font-semibold underline underline-offset-2">
+                  Lihat keranjang
+                </Link>
+              )}
+            </p>
+          )}
         </div>
 
         <a

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
+import { Suspense } from "react";
 import { Countdown } from "@/components/Countdown";
 import { ProductGrid } from "@/components/ProductCard";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -21,7 +22,15 @@ async function getCoupons() {
   return prisma.coupon.findMany({ where: { isActive: true, startsAt: { lte: now }, endsAt: { gt: now } }, orderBy: { createdAt: "asc" } });
 }
 
-export default async function PromoPage() {
+export default function PromoPage() {
+  return (
+    <Suspense fallback={<div className="container-page py-14"><div className="h-96 animate-pulse rounded-2xl bg-blush" /></div>}>
+      <PromoContent />
+    </Suspense>
+  );
+}
+
+async function PromoContent() {
   const [home, discounted, coupons] = await Promise.all([getHomeData(), searchProducts({ diskon: true, sort: "terlaris" }), getCoupons()]);
   const dateFmt = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" });
   return (

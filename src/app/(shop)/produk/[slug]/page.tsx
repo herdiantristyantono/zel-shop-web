@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { ProductGrid } from "@/components/ProductCard";
 import { ProductInteractive } from "@/components/product/ProductInteractive";
 import { Reviews } from "@/components/product/Reviews";
@@ -27,7 +28,15 @@ export async function generateMetadata({ params }: PageProps<"/produk/[slug]">):
   };
 }
 
-export default async function ProductPage({ params }: PageProps<"/produk/[slug]">) {
+export default function ProductPage({ params }: PageProps<"/produk/[slug]">) {
+  return (
+    <Suspense fallback={<div className="container-page py-10"><div className="aspect-square max-w-xl animate-pulse rounded-[var(--radius-card)] bg-blush" /></div>}>
+      <ProductContent params={params} />
+    </Suspense>
+  );
+}
+
+async function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const product = await getProduct((await params).slug);
   if (!product) notFound();
   const related = await getRelatedProducts(product.id, product.categoryId);

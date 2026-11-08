@@ -21,7 +21,15 @@ export async function generateMetadata({ params }: PageProps<"/kategori/[slug]">
   };
 }
 
-export default async function CategoryPage({ params, searchParams }: PageProps<"/kategori/[slug]">) {
+export default function CategoryPage(props: PageProps<"/kategori/[slug]">) {
+  return (
+    <Suspense fallback={<div className="container-page py-10"><CatalogSkeleton /></div>}>
+      <CategoryContent {...props} />
+    </Suspense>
+  );
+}
+
+async function CategoryContent({ params, searchParams }: PageProps<"/kategori/[slug]">) {
   const cat = await getCategory((await params).slug);
   if (!cat || !cat.isActive) notFound();
   return (

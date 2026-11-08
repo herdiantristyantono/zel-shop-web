@@ -11,8 +11,8 @@ Next.js 16 (App Router, Cache Components) · TypeScript · Tailwind CSS 4 · Pos
 ## Status pengerjaan
 
 - [x] **Tahap 1 — Fondasi:** skema database lengkap, auth (email/password, Google, reset password, rate limit), katalog (beranda, kategori, pencarian + autocomplete, filter, sortir, detail produk, promo, halaman info), SEO, data contoh 14 produk
-- [ ] **Tahap 2 — Keranjang & checkout:** keranjang (tamu + sinkron saat login), wishlist, buku alamat, checkout 3 langkah, kupon
-- [ ] **Tahap 3 — Pembayaran & ongkir:** payment gateway + webhook, ongkir per kurir, lacak resi, batas waktu bayar & pembatalan otomatis, email/WhatsApp
+- [x] **Tahap 2 — Keranjang & checkout:** keranjang (tamu + digabung saat login, validasi stok realtime), wishlist, buku alamat, checkout 3 langkah dengan ongkir **Biteship**, kupon & gratis ongkir, pemotongan stok atomik, halaman status pesanan (juga untuk tamu), riwayat pesanan, email konfirmasi
+- [ ] **Tahap 3 — Pembayaran & pengiriman:** **Midtrans** Snap + webhook, batas waktu bayar & pembatalan otomatis (stok kembali), lacak resi, notifikasi WhatsApp
 - [ ] **Tahap 4 — Dashboard admin**
 
 ## Struktur folder
@@ -34,16 +34,20 @@ src/
       produk/            # daftar & detail produk
       kategori/[slug]/
       promo/  info/[slug]/
-      masuk/  daftar/  lupa-password/  reset-password/  akun/
+      masuk/  daftar/  lupa-password/  reset-password/
+      keranjang/  checkout/  pesanan/[orderNumber]/  wishlist/
+      akun/  akun/alamat/  akun/pesanan/
     api/auth/[...all]/   # endpoint Better Auth
     api/search/          # autocomplete
     sitemap.ts  robots.ts  layout.tsx  globals.css
+  actions/               # Server Actions: cart, wishlist, address, checkout
   components/            # UI (Header, ProductCard, galeri, filter, form auth, dll.)
   lib/
     prisma.ts            # Prisma client
     auth.ts              # konfigurasi Better Auth (server)
     auth-client.ts       # hook auth (client)
     catalog.ts           # query katalog + cache
+    cart.ts  pricing.ts  coupon.ts  shipping.ts (Biteship)  orders.ts  settings.ts  validation.ts
     email.ts  format.ts  site.ts
   generated/prisma/      # hasil `prisma generate` (tidak di-commit)
 ```
@@ -95,6 +99,18 @@ Perintah lain: `npm run db:studio` (lihat isi database), `npm run typecheck`, `n
 2. **Credentials → Create credentials → OAuth client ID → Web application**.
 3. Authorized redirect URI: `http://localhost:3000/api/auth/callback/google` dan `https://domainanda.com/api/auth/callback/google`.
 4. Isi `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET`. Tombol Google muncul otomatis.
+
+### Ongkir (Biteship)
+Tanpa `BITESHIP_API_KEY`, checkout memakai daftar wilayah & tarif **contoh** (ditandai "Mode contoh" di halaman checkout) — cukup untuk mencoba alur lokal.
+1. Daftar di [biteship.com](https://biteship.com), buka **Dashboard → Integrasi/API** dan salin API key (mulai dengan key *testing*).
+2. Isi `BITESHIP_API_KEY`.
+3. Cari ID area alamat gudang (asal kirim) lalu isi `BITESHIP_ORIGIN_AREA_ID`:
+
+```bash
+curl -H "Authorization: $BITESHIP_API_KEY" "https://api.biteship.com/v1/maps/areas?countries=ID&type=single&input=40111"
+```
+
+4. Kurir aktif diatur di tabel `StoreSettings.activeCouriers` (default: jne, jnt, sicepat, anteraja, pos); di Tahap 4 bisa diubah dari dashboard.
 
 ### Email (Resend)
 1. Daftar di [resend.com](https://resend.com), **Domains → Add domain**, tambahkan record DNS (SPF/DKIM) di pengelola domain.

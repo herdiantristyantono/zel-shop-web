@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { Markdown } from "@/components/Markdown";
 import { getPage, getPageSlugs } from "@/lib/catalog";
 
@@ -14,7 +15,15 @@ export async function generateMetadata({ params }: PageProps<"/info/[slug]">): P
   return { title: page.title, description: page.summary ?? undefined, alternates: { canonical: `/info/${page.slug}` } };
 }
 
-export default async function InfoPage({ params }: PageProps<"/info/[slug]">) {
+export default function InfoPage({ params }: PageProps<"/info/[slug]">) {
+  return (
+    <Suspense fallback={<div className="container-page max-w-3xl py-16"><div className="h-64 animate-pulse rounded-2xl bg-blush" /></div>}>
+      <InfoContent params={params} />
+    </Suspense>
+  );
+}
+
+async function InfoContent({ params }: { params: Promise<{ slug: string }> }) {
   const page = await getPage((await params).slug);
   if (!page) notFound();
   return (

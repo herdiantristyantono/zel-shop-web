@@ -15,10 +15,10 @@ export function LogoMark({ className = "h-9 w-9", light = false }: { className?:
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5" aria-label="Zel Shop — Beranda">
-      <LogoMark light={light} className="h-8 w-8 sm:h-9 sm:w-9" />
+    <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-2.5" aria-label="Zel Shop — Beranda">
+      <LogoMark light={light} className="h-8 w-8 shrink-0 sm:h-9 sm:w-9" />
       <span className="whitespace-nowrap leading-none">
-        <span className={`block font-serif text-xl font-semibold tracking-[0.18em] sm:text-2xl sm:tracking-[0.22em] ${light ? "text-blush" : "text-plum"}`}>ZEL SHOP</span>
+        <span className={`block font-serif text-[clamp(0.95rem,5vw,1.25rem)] font-semibold tracking-[0.14em] sm:text-2xl sm:tracking-[0.22em] ${light ? "text-blush" : "text-plum"}`}>ZEL SHOP</span>
         <span className={`hidden text-[10px] font-medium tracking-[0.3em] sm:block ${light ? "text-blush/90" : "text-muted"}`}>DOMPET &amp; TAS WANITA</span>
       </span>
     </Link>
