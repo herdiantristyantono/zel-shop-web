@@ -1,0 +1,574 @@
+// Zel Shop — skema database
+// Semua harga disimpan dalam Rupiah (Int, tanpa desimal). Berat dalam gram.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Enum ─────────────────────────
+
+enum Role {
+  CUSTOMER
+  STAFF // Staf Gudang: stok & pesanan
+  ADMIN // Semua kecuali pengaturan sensitif & manajemen admin
+  OWNER // Akses penuh
+}
+
+enum ProductSize {
+  MINI
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT // Menunggu pembayaran
+  PAID // Dibayar
+  PROCESSING // Diproses / dikemas
+  SHIPPED // Dikirim
+  COMPLETED // Selesai
+  CANCELLED // Dibatalkan
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum StockReason {
+  INITIAL
+  RESTOCK
+  ADJUSTMENT
+  ORDER // stok dipotong saat checkout
+  ORDER_CANCELLED // stok dikembalikan
+  RETURN
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  HIDDEN
+}
+
+enum CouponType {
+  PERCENT
+  FIXED
+  FREE_SHIPPING
+}
+
+// ───────────────────── Auth (Better Auth) ─────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  phone         String?
+  role          Role      @default(CUSTOMER)
+  banned        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+  accounts      Account[]
+  addresses     Address[]
+  cart          Cart?
+  wishlist      WishlistItem[]
+  orders        Order[]
+  reviews       Review[]
+  stockMoves    StockMovement[]
+  orderNotes    OrderNote[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String? // hash (scrypt) — dikelola Better Auth
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// Penyimpanan rate-limit Better Auth (aman untuk serverless/multi-instance)
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rate_limit")
+}
+
+// ───────────────────────── Katalog ─────────────────────────
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id              String       @id @default(cuid())
+  name            String
+  slug            String       @unique
+  description     String // teks panjang (boleh paragraf)
+  material        String // mis. "Kulit sintetis PU premium"
+  size            ProductSize
+  lengthCm        Float // P
+  widthCm         Float // L
+  heightCm        Float // T
+  weightGram      Int // berat kirim per unit
+  cardSlots       Int? // jumlah slot kartu (dompet)
+  compartments    String? // mis. "2 ruang utama, 1 resleting tengah"
+  price           Int // harga jual
+  compareAtPrice  Int? // harga coret (normal), null = tidak diskon
+  isPublished     Boolean      @default(true)
+  isFeatured      Boolean      @default(false)
+  minStockAlert   Int          @default(3)
+  soldCount       Int          @default(0) // denormalisasi untuk sortir "terlaris"
+  ratingAvg       Float        @default(0) // denormalisasi dari ulasan APPROVED
+  ratingCount     Int          @default(0)
+  metaTitle       String?
+  metaDescription String?
+  categoryId      String
+  category        Category     @relation(fields: [categoryId], references: [id])
+  images          ProductImage[]
+  variants        ProductVariant[]
+  reviews         Review[]
+  wishlistedBy    WishlistItem[]
+  flashSaleItems  FlashSaleItem[]
+  orderItems      OrderItem[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([categoryId, isPublished])
+  @@index([isPublished, createdAt])
+  @@index([isPublished, soldCount])
+  @@index([price])
+}
+
+model ProductImage {
+  id        String          @id @default(cuid())
+  productId String
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String? // foto khusus warna tertentu (opsional)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  url       String
+  alt       String
+  width     Int?
+  height    Int?
+  sortOrder Int             @default(0)
+  isPrimary Boolean         @default(false)
+
+  @@index([productId, sortOrder])
+}
+
+model ProductVariant {
+  id            String          @id @default(cuid())
+  productId     String
+  product       Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  colorName     String // "Hitam", "Cokelat Susu"
+  colorHex      String // "#1F1A1C" untuk swatch
+  sku           String          @unique
+  stock         Int             @default(0)
+  priceOverride Int? // jika varian punya harga beda
+  isActive      Boolean         @default(true)
+  sortOrder     Int             @default(0)
+  images        ProductImage[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  stockMoves    StockMovement[]
+
+  @@index([productId])
+  @@index([colorName])
+}
+
+model StockMovement {
+  id        String         @id @default(cuid())
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  change    Int // + masuk, - keluar
+  balance   Int // stok setelah perubahan
+  reason    StockReason
+  note      String?
+  orderId   String?
+  userId    String?
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime       @default(now())
+
+  @@index([variantId, createdAt])
+}
+
+// ───────────────────── Keranjang & Wishlist ─────────────────────
+
+model Cart {
+  id         String     @id @default(cuid())
+  userId     String?    @unique
+  user       User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestToken String?    @unique // cookie untuk tamu; digabung saat login
+  items      CartItem[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String         @id @default(cuid())
+  cartId    String
+  cart      Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity  Int
+  createdAt DateTime       @default(now())
+
+  @@unique([cartId, variantId])
+}
+
+model WishlistItem {
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  notifyOnSale    Boolean  @default(true)
+  notifyOnRestock Boolean  @default(true)
+  lastNotifiedAt  DateTime?
+  createdAt       DateTime @default(now())
+
+  @@id([userId, productId])
+}
+
+// ───────────────────────── Alamat ─────────────────────────
+
+model Address {
+  id            String  @id @default(cuid())
+  userId        String
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String // "Rumah", "Kantor"
+  recipientName String
+  phone         String
+  province      String
+  city          String
+  district      String // kecamatan
+  subdistrict   String? // kelurahan
+  postalCode    String
+  street        String
+  areaId        String? // ID area dari API ongkir (Biteship/RajaOngkir)
+  isDefault     Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ───────────────────────── Pesanan ─────────────────────────
+
+model Order {
+  id               String        @id @default(cuid())
+  orderNumber      String        @unique // ZEL-20261108-AB12
+  userId           String?
+  user             User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email            String // email pembeli (akun / tamu)
+  customerName     String
+  phone            String
+  accessToken      String        @unique // untuk tamu melihat status pesanan tanpa login
+  status           OrderStatus   @default(PENDING_PAYMENT)
+
+  // Snapshot alamat (tidak berubah walau buku alamat diedit)
+  recipientName    String
+  province         String
+  city             String
+  district         String
+  subdistrict      String?
+  postalCode       String
+  street           String
+  areaId           String?
+
+  // Pengiriman
+  courierCode      String // jne, jnt, sicepat, anteraja, pos
+  courierService   String // REG, YES, dll
+  courierEtd       String? // "2-3 hari"
+  totalWeightGram  Int
+  trackingNumber   String?
+
+  // Nominal
+  subtotal         Int
+  discount         Int           @default(0)
+  shippingCost     Int
+  shippingDiscount Int           @default(0)
+  total            Int
+  couponId         String?
+  coupon           Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponCode       String?
+
+  // Pembayaran
+  paymentMethod    String? // qris, bca_va, gopay, credit_card, ...
+  paymentExpiresAt DateTime?
+  paidAt           DateTime?
+  shippedAt        DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  cancelReason     String?
+  customerNote     String?
+
+  items            OrderItem[]
+  payments         Payment[]
+  history          OrderStatusHistory[]
+  notes            OrderNote[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([status, paymentExpiresAt])
+}
+
+model OrderItem {
+  id          String          @id @default(cuid())
+  orderId     String
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId   String?
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  // Snapshot saat dibeli
+  productName String
+  colorName   String
+  sku         String
+  imageUrl    String?
+  unitPrice   Int
+  quantity    Int
+  weightGram  Int
+  review      Review?
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  note      String?
+  actorId   String? // null = sistem / webhook
+  createdAt DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model OrderNote {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider    String // midtrans | xendit
+  providerRef String        @unique // transaction id / invoice id dari gateway
+  method      String?
+  amount      Int
+  status      PaymentStatus @default(PENDING)
+  redirectUrl String? // Snap / invoice URL
+  vaNumber    String?
+  qrString    String?
+  expiresAt   DateTime?
+  raw         Json? // payload terakhir dari webhook (untuk audit)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([orderId])
+}
+
+// ───────────────────────── Ulasan ─────────────────────────
+
+model Review {
+  id          String        @id @default(cuid())
+  productId   String
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItemId String        @unique // menjamin pembeli terverifikasi & 1 ulasan per item
+  orderItem   OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  rating      Int // 1–5
+  body        String?
+  status      ReviewStatus  @default(PENDING)
+  adminReply  String?
+  repliedAt   DateTime?
+  images      ReviewImage[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([productId, status, createdAt])
+}
+
+model ReviewImage {
+  id       String @id @default(cuid())
+  reviewId String
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  url      String
+}
+
+// ───────────────────────── Promo ─────────────────────────
+
+model Coupon {
+  id           String     @id @default(cuid())
+  code         String     @unique // disimpan UPPERCASE
+  description  String?
+  type         CouponType
+  value        Int // persen (1–100) atau nominal Rupiah
+  maxDiscount  Int? // batas potongan untuk tipe PERCENT / FREE_SHIPPING
+  minPurchase  Int        @default(0)
+  quota        Int? // null = tanpa batas
+  usedCount    Int        @default(0)
+  perUserLimit Int        @default(1)
+  startsAt     DateTime
+  endsAt       DateTime
+  isActive     Boolean    @default(true)
+  orders       Order[]
+  createdAt    DateTime   @default(now())
+}
+
+model FlashSale {
+  id        String          @id @default(cuid())
+  name      String
+  startsAt  DateTime
+  endsAt    DateTime
+  isActive  Boolean         @default(true)
+  items     FlashSaleItem[]
+  createdAt DateTime        @default(now())
+
+  @@index([isActive, startsAt, endsAt])
+}
+
+model FlashSaleItem {
+  id          String    @id @default(cuid())
+  flashSaleId String
+  flashSale   FlashSale @relation(fields: [flashSaleId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  salePrice   Int
+  quota       Int? // jumlah unit dengan harga flash sale
+  soldCount   Int       @default(0)
+
+  @@unique([flashSaleId, productId])
+}
+
+model Banner {
+  id             String    @id @default(cuid())
+  title          String
+  subtitle       String?
+  imageUrl       String
+  mobileImageUrl String?
+  linkUrl        String?
+  ctaLabel       String?
+  sortOrder      Int       @default(0)
+  isActive       Boolean   @default(true)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  city      String?
+  body      String
+  rating    Int      @default(5)
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────── Konten & Pengaturan ─────────────────────
+
+// Halaman statis yang bisa diedit admin (Tentang Kami, Kebijakan, FAQ, dll.)
+model Page {
+  slug      String   @id
+  title     String
+  summary   String?
+  content   String // Markdown sederhana
+  updatedAt DateTime @updatedAt
+}
+
+// Baris tunggal (id = 1)
+model StoreSettings {
+  id                 Int      @id @default(1)
+  storeName          String   @default("Zel Shop")
+  tagline            String?
+  email              String?
+  whatsappNumber     String? // format 62xxxxxxxxxx
+  address            String?
+  // Alamat asal pengiriman
+  originAreaId       String?
+  originCity         String?
+  originPostalCode   String?
+  activeCouriers     String[] @default(["jne", "jnt", "sicepat", "anteraja", "pos"])
+  paymentMethods     String[] @default(["qris", "bank_transfer", "gopay", "shopeepay", "credit_card"])
+  paymentTimeoutMins Int      @default(1440) // batas waktu bayar (24 jam)
+  freeShippingMin    Int? // gratis ongkir untuk belanja ≥ nilai ini
+  freeShippingMax    Int? // maksimal subsidi ongkir
+  instagramUrl       String?
+  tiktokUrl          String?
+  shopeeUrl          String?
+  tokopediaUrl       String?
+  updatedAt          DateTime @updatedAt
+}

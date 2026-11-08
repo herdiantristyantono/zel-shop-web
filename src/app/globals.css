@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* Zel Shop design tokens */
+@theme {
+  --color-plum: #5b2a45;
+  --color-plum-dark: #45203a;
+  --color-plum-soft: #efe0e6;
+  --color-blush: #f4e4e1;
+  --color-cream: #fbf5f3;
+  --color-gold: #c9a06a; /* dekoratif saja — jangan dipakai untuk teks kecil */
+  --color-ink: #2a1a22;
+  --color-muted: #6b5560; /* 6.3:1 di atas cream — lolos WCAG AA */
+  --color-line: #e8d7d3;
+  --color-success: #2f6b4a;
+  --color-danger: #a12a3a;
+
+  --font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-jost), "Jost", system-ui, sans-serif;
+
+  --radius-card: 14px;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-cream text-ink font-sans antialiased;
+  }
+  h1, h2, h3 {
+    @apply font-serif text-plum;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-plum);
+    outline-offset: 2px;
+  }
+  button, [role="button"] {
+    cursor: pointer;
+  }
+}
+
+@utility container-page {
+  @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+}
+@utility btn {
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-medium tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-plum text-white hover:bg-plum-dark;
+}
+@utility btn-outline {
+  @apply btn border border-plum text-plum hover:bg-plum-soft;
+}
+@utility btn-ghost {
+  @apply btn text-plum hover:bg-plum-soft;
+}
+@utility input {
+  @apply min-h-11 w-full rounded-xl border border-line bg-white px-4 text-base text-ink placeholder:text-muted/80 focus:border-plum focus:outline-none focus:ring-2 focus:ring-plum/20;
+}
+@utility label {
+  @apply mb-1.5 block text-sm font-medium text-ink;
+}
+@utility eyebrow {
+  @apply text-xs font-medium uppercase tracking-[0.25em] text-muted;
+}
+
+@layer components {
+  .prose-zel {
+    @apply text-ink leading-relaxed;
+  }
+  .prose-zel h2 {
+    @apply mt-10 mb-3 text-2xl;
+  }
+  .prose-zel p {
+    @apply my-3;
+  }
+  .prose-zel ul {
+    @apply my-3 list-disc space-y-1.5 pl-5;
+  }
+  .prose-zel ol {
+    @apply my-3 list-decimal space-y-1.5 pl-5;
+  }
+  .prose-zel a {
+    @apply text-plum underline underline-offset-2;
+  }
+  .prose-zel strong {
+    @apply font-semibold;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
