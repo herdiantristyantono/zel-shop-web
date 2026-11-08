@@ -12,7 +12,7 @@ Next.js 16 (App Router, Cache Components) · TypeScript · Tailwind CSS 4 · Pos
 
 - [x] **Tahap 1 — Fondasi:** skema database lengkap, auth (email/password, Google, reset password, rate limit), katalog (beranda, kategori, pencarian + autocomplete, filter, sortir, detail produk, promo, halaman info), SEO, data contoh 14 produk
 - [x] **Tahap 2 — Keranjang & checkout:** keranjang (tamu + digabung saat login, validasi stok realtime), wishlist, buku alamat, checkout 3 langkah dengan ongkir **Biteship**, kupon & gratis ongkir, pemotongan stok atomik, halaman status pesanan (juga untuk tamu), riwayat pesanan, email konfirmasi
-- [ ] **Tahap 3 — Pembayaran & pengiriman:** **Midtrans** Snap + webhook, batas waktu bayar & pembatalan otomatis (stok kembali), lacak resi, notifikasi WhatsApp
+- [x] **Tahap 3 — Pembayaran & pengiriman:** **Midtrans** Snap + webhook terverifikasi, batas waktu bayar & pembatalan otomatis (stok & kupon kembali), lacak resi Biteship, "pesanan diterima", ulasan pembeli terverifikasi, notifikasi email + WhatsApp (Fonnte)
 - [ ] **Tahap 4 — Dashboard admin**
 
 ## Struktur folder
@@ -39,8 +39,9 @@ src/
       akun/  akun/alamat/  akun/pesanan/
     api/auth/[...all]/   # endpoint Better Auth
     api/search/          # autocomplete
+    api/webhooks/midtrans/  api/cron/expire-orders/
     sitemap.ts  robots.ts  layout.tsx  globals.css
-  actions/               # Server Actions: cart, wishlist, address, checkout
+  actions/               # Server Actions: cart, wishlist, address, checkout, order
   components/            # UI (Header, ProductCard, galeri, filter, form auth, dll.)
   lib/
     prisma.ts            # Prisma client
@@ -48,6 +49,7 @@ src/
     auth-client.ts       # hook auth (client)
     catalog.ts           # query katalog + cache
     cart.ts  pricing.ts  coupon.ts  shipping.ts (Biteship)  orders.ts  settings.ts  validation.ts
+    midtrans.ts  payments.ts  order-service.ts (transisi status)  notify.ts  whatsapp.ts
     email.ts  format.ts  site.ts
   generated/prisma/      # hasil `prisma generate` (tidak di-commit)
 ```
@@ -111,6 +113,24 @@ curl -H "Authorization: $BITESHIP_API_KEY" "https://api.biteship.com/v1/maps/are
 ```
 
 4. Kurir aktif diatur di tabel `StoreSettings.activeCouriers` (default: jne, jnt, sicepat, anteraja, pos); di Tahap 4 bisa diubah dari dashboard.
+
+### Pembayaran (Midtrans)
+Tanpa `MIDTRANS_SERVER_KEY`, halaman pesanan menampilkan tombol **"Simulasikan pembayaran berhasil"** (hanya di lokal) untuk menguji alur.
+1. Daftar di [midtrans.com](https://midtrans.com). Mulai dari **Sandbox**: [dashboard.sandbox.midtrans.com](https://dashboard.sandbox.midtrans.com) → **Settings → Access Keys** → isi `MIDTRANS_SERVER_KEY` & `MIDTRANS_CLIENT_KEY`, `MIDTRANS_IS_PRODUCTION="false"`.
+2. **Settings → Configuration**:
+   - *Payment Notification URL*: `https://domainanda.com/api/webhooks/midtrans`
+   - *Finish/Unfinish/Error Redirect URL*: `https://domainanda.com/akun/pesanan` (pembeli juga otomatis diarahkan kembali ke halaman pesanannya)
+3. Aktifkan metode pembayaran (QRIS, VA, GoPay, ShopeePay, kartu kredit) di **Settings → Payment**. Metode yang ditawarkan di checkout diatur di `StoreSettings.paymentMethods`.
+4. Uji webhook di lokal dengan tunnel, mis. `ngrok http 3000`, lalu pakai URL ngrok sebagai Notification URL sandbox. Simulator pembayaran sandbox: [simulator.sandbox.midtrans.com](https://simulator.sandbox.midtrans.com).
+5. Setelah verifikasi akun & go-live: ganti ke kunci produksi dan `MIDTRANS_IS_PRODUCTION="true"`.
+
+**Keamanan webhook:** signature SHA512 diverifikasi (constant-time), status diambil ulang dari API Midtrans, nominal dicocokkan dengan total pesanan, dan perubahan status idempoten (notifikasi ganda aman).
+
+### Pembatalan otomatis (cron)
+`vercel.json` menjadwalkan `/api/cron/expire-orders` tiap 15 menit — isi `CRON_SECRET` di Vercel. **Catatan:** paket Vercel Hobby hanya mengizinkan cron 1×/hari; pada paket Hobby gunakan layanan gratis seperti [cron-job.org](https://cron-job.org) untuk memanggil URL tersebut tiap 15 menit dengan header `Authorization: Bearer <CRON_SECRET>`. Pesanan kedaluwarsa juga dibatalkan saat halamannya dibuka.
+
+### WhatsApp (Fonnte)
+Daftar di [fonnte.com](https://fonnte.com), hubungkan nomor WhatsApp toko (scan QR), salin token device ke `WHATSAPP_API_TOKEN`. Pesan otomatis: pesanan dibuat, pembayaran diterima, dibatalkan, dan dikirim (dengan resi). Admin menerima notifikasi pesanan dibayar di nomor `StoreSettings.whatsappNumber`. Gateway lain bisa dipakai dengan menyesuaikan `src/lib/whatsapp.ts`.
 
 ### Email (Resend)
 1. Daftar di [resend.com](https://resend.com), **Domains → Add domain**, tambahkan record DNS (SPF/DKIM) di pengelola domain.

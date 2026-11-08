@@ -7,6 +7,7 @@ import { TAGS } from "@/lib/catalog";
 import { computeTotals, type Totals } from "@/lib/coupon";
 import { emailLayout, sendEmail } from "@/lib/email";
 import { rupiah } from "@/lib/format";
+import { notifyOrderCreated } from "@/lib/notify";
 import { newOrderNumber } from "@/lib/orders";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHODS, getStoreSettings } from "@/lib/settings";
@@ -211,6 +212,16 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
        <tr><td style="font-weight:bold;padding-top:6px">Total</td><td align="right" style="font-weight:bold">${rupiah(totals.total)}</td></tr></table>
        <p><a href="${link}" style="display:inline-block;margin-top:16px;background:#5B2A45;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">Lihat pesanan & bayar</a></p>`,
     ),
+  });
+
+  await notifyOrderCreated({
+    orderNumber,
+    accessToken,
+    email,
+    customerName: user?.name ?? data.contact!.customerName,
+    phone: dest.phone,
+    total: totals.total,
+    paymentExpiresAt: new Date(Date.now() + settings.paymentTimeoutMins * 60_000),
   });
 
   return { ok: true, orderNumber, token: accessToken };

@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { headers } from "next/headers";
+import { connection } from "next/server";
 import { prisma } from "./prisma";
 import { emailLayout, sendEmail } from "./email";
 
@@ -75,6 +76,7 @@ export type Session = typeof auth.$Infer.Session;
 
 /** Ambil sesi di Server Component / Server Action. */
 export async function getSession() {
+  await connection(); // selalu per-request (tidak pernah di-prerender)
   return auth.api.getSession({ headers: await headers() });
 }
 

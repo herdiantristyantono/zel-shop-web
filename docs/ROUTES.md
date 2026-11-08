@@ -14,12 +14,12 @@ Status: ✅ selesai · 🔜 tahap berikutnya
 | `/masuk`, `/daftar` | Login & daftar (email/password + Google) | ✅ |
 | `/lupa-password`, `/reset-password` | Reset kata sandi via email | ✅ |
 | `/akun` | Ringkasan akun | ✅ |
-| `/akun/pesanan` | Riwayat pesanan (detail di `/pesanan/[orderNumber]`) | ✅ (lacak resi live: T3) |
+| `/akun/pesanan` | Riwayat pesanan (detail di `/pesanan/[orderNumber]`) | ✅ |
 | `/akun/alamat` | Buku alamat (tambah/ubah/hapus/alamat utama, pencarian kecamatan Biteship) | ✅ |
 | `/wishlist` | Wishlist: pindah ke keranjang, preferensi notifikasi diskon/stok | ✅ (pengiriman notifikasi: T4) |
 | `/keranjang` | Keranjang: ubah jumlah, hapus, validasi stok realtime, progres gratis ongkir | ✅ |
-| `/checkout` | Alamat → Pengiriman (ongkir Biteship) → Pembayaran (kupon, metode) → buat pesanan | ✅ (bayar via Midtrans: T3) |
-| `/pesanan/[orderNumber]?token=` | Status pesanan (pemilik akun, atau tamu dengan token rahasia) | ✅ |
+| `/checkout` | Alamat → Pengiriman (ongkir Biteship) → Pembayaran (kupon, metode) → buat pesanan | ✅ |
+| `/pesanan/[orderNumber]?token=` | Status pesanan, bayar via Midtrans, cek status, batalkan, lacak resi, "pesanan diterima", tulis ulasan | ✅ |
 
 ### Parameter filter `/produk`
 `q` · `kategori=a,b` · `min` · `max` · `warna=Hitam,Krem` · `ukuran=MINI,SMALL,MEDIUM,LARGE` · `bahan=kulit-sintetis,kulit-asli,kanvas,satin,nilon` · `rating=4` · `diskon=1` · `sort=terbaru|terlaris|termurah|termahal|rating` · `page`
@@ -31,8 +31,8 @@ Status: ✅ selesai · 🔜 tahap berikutnya
 | `/api/search?q=` | Autocomplete pencarian | ✅ |
 | Server Actions `findAreas`, `getShippingOptions` | Cari wilayah & hitung ongkir (Biteship) | ✅ |
 | `/api/me/wishlist` | ID produk di wishlist user (status tombol hati) | ✅ |
-| `/api/webhooks/midtrans` | Update status pembayaran otomatis | 🔜 T3 |
-| `/api/cron/expire-orders` | Batalkan pesanan kedaluwarsa & kembalikan stok | 🔜 T3 |
+| `/api/webhooks/midtrans` | Notifikasi Midtrans: verifikasi signature → cek ulang status ke API → cocokkan nominal → update status | ✅ |
+| `/api/cron/expire-orders` | Batalkan pesanan kedaluwarsa, kembalikan stok & kuota kupon (header `Authorization: Bearer CRON_SECRET`) | ✅ |
 
 ## SEO
 `/sitemap.xml` ✅ · `/robots.txt` ✅ · metadata & Open Graph per produk/kategori ✅ · schema.org `Product` + `AggregateRating` + `Review` ✅
@@ -57,5 +57,14 @@ Status: ✅ selesai · 🔜 tahap berikutnya
 | `wishlist.ts` | `toggleWishlist`, `moveWishlistToCart`, `setWishlistNotify` |
 | `address.ts` | `saveAddress`, `deleteAddress`, `setDefaultAddress` |
 | `checkout.ts` | `findAreas`, `getShippingOptions`, `previewTotals`, `placeOrder` |
+| `order.ts` | `startPayment` (Snap), `syncPayment`, `cancelMyOrder`, `confirmReceived`, `submitReview`, `simulatePayment` (hanya lokal) |
 
 `placeOrder` menghitung ulang semua harga, ongkir (memanggil ulang Biteship), dan kupon di server; memotong stok secara atomik (`stock >= qty`) dalam satu transaksi bersama kuota kupon, pembuatan pesanan, dan pengosongan keranjang.
+
+## Siklus status pesanan
+```
+PENDING_PAYMENT ──bayar (webhook/cek status)──▶ PAID ──admin──▶ PROCESSING ──input resi──▶ SHIPPED ──pembeli/admin──▶ COMPLETED
+       │
+       └─ batas waktu habis (cron / dibuka) · dibatalkan pembeli · Midtrans "expire"/"cancel" ──▶ CANCELLED (stok & kupon dikembalikan)
+```
+Pembayaran yang masuk setelah pesanan dibatalkan dicatat di riwayat dan admin diberi tahu via WhatsApp (proses ulang atau refund manual).

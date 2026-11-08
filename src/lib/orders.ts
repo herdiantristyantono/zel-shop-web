@@ -26,11 +26,18 @@ export function newOrderNumber() {
 export async function getOrderForViewer(orderNumber: string, token?: string | null) {
   const order = await prisma.order.findUnique({
     where: { orderNumber },
-    include: { items: true, history: { orderBy: { createdAt: "asc" } }, payments: { orderBy: { createdAt: "desc" }, take: 1 } },
+    include: { items: { include: { review: { select: { id: true, status: true } } } }, history: { orderBy: { createdAt: "asc" } }, payments: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
   if (!order) return null;
   if (token && token.length >= 20 && token === order.accessToken) return order;
   const session = await getSession();
   if (session && order.userId === session.user.id) return order;
   return null;
+}
+
+/** true jika user yang login adalah pemilik pesanan (syarat menulis ulasan). */
+export async function isOrderOwner(userId: string | null) {
+  if (!userId) return false;
+  const session = await getSession();
+  return session?.user.id === userId;
 }

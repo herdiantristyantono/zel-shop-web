@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import type { getOrderForViewer } from "@/lib/orders";
 import { STATUS_LABEL } from "@/lib/orders";
 import { rupiah } from "@/lib/format";
@@ -7,13 +8,18 @@ import { COURIER_NAMES } from "@/lib/shipping";
 import { site, whatsappLink } from "@/lib/site";
 import { Countdown } from "../Countdown";
 import { ProductImage } from "../ProductImage";
+import { ConfirmReceivedButton, PaymentPanel } from "./PaymentPanel";
+import { ReviewForm } from "./ReviewForm";
+import { TrackingTimeline } from "./TrackingTimeline";
 
 type Order = NonNullable<Awaited<ReturnType<typeof getOrderForViewer>>>;
 
 const FLOW = ["PENDING_PAYMENT", "PAID", "PROCESSING", "SHIPPED", "COMPLETED"] as const;
 const dt = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" });
 
-export function OrderDetail({ order, isNew }: { order: Order; isNew: boolean }) {
+export type OrderViewer = { token: string | null; paymentMode: "midtrans" | "dev" | "manual"; canReview: boolean };
+
+export function OrderDetail({ order, isNew, viewer }: { order: Order; isNew: boolean; viewer: OrderViewer }) {
   const current = FLOW.indexOf(order.status as (typeof FLOW)[number]);
   const cancelled = order.status === "CANCELLED";
   return (
@@ -21,7 +27,7 @@ export function OrderDetail({ order, isNew }: { order: Order; isNew: boolean }) 
       {isNew && (
         <div className="rounded-2xl bg-plum p-6 text-white" role="status">
           <p className="font-serif text-3xl">Terima kasih, pesanan diterima!</p>
-          <p className="mt-2 text-sm text-white/90">Detail pesanan juga kami kirim ke <strong>{order.email}</strong>. Simpan halaman ini untuk memantau status pesanan.</p>
+          <p className="mt-2 text-sm text-white/90">Detail pesanan juga kami kirim ke <strong>{order.email}</strong> dan WhatsApp {order.phone}. Simpan halaman ini untuk memantau status pesanan.</p>
         </div>
       )}
 
@@ -54,13 +60,31 @@ export function OrderDetail({ order, isNew }: { order: Order; isNew: boolean }) 
             <strong className="text-ink">{dt.format(order.paymentExpiresAt)} WIB</strong>. Pesanan dibatalkan otomatis setelah batas waktu.
           </p>
           <div className="mt-4"><Countdown endsAt={order.paymentExpiresAt.toISOString()} /></div>
-          {/* Tahap 3: tombol Midtrans Snap / instruksi VA & QRIS dirender di sini */}
-          <div id="payment-panel" className="mt-5 rounded-xl bg-blush p-4 text-sm text-ink">
-            Halaman pembayaran online sedang disiapkan. Untuk sementara, hubungi admin kami untuk menyelesaikan pembayaran.
-            <a href={whatsappLink(`Halo ${site.name}, saya mau bayar pesanan ${order.orderNumber}`)} target="_blank" rel="noopener noreferrer" className="btn-primary mt-3 w-full sm:w-auto">
-              Hubungi via WhatsApp
-            </a>
+          <Suspense>
+            <PaymentPanel
+              orderNumber={order.orderNumber}
+              token={viewer.token}
+              mode={viewer.paymentMode}
+              whatsappHref={whatsappLink(`Halo ${site.name}, saya mau bayar pesanan ${order.orderNumber}`)}
+            />
+          </Suspense>
+        </section>
+      )}
+
+      {order.trackingNumber && (order.status === "SHIPPED" || order.status === "COMPLETED") && (
+        <section className="rounded-2xl border border-line bg-white p-5 sm:p-6" aria-labelledby="lacak">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 id="lacak" className="text-2xl">Lacak paket</h2>
+              <p className="mt-1 text-sm text-muted">
+                {COURIER_NAMES[order.courierCode] ?? order.courierCode} · resi <span className="font-mono font-semibold text-ink">{order.trackingNumber}</span>
+              </p>
+            </div>
+            {order.status === "SHIPPED" && <ConfirmReceivedButton orderNumber={order.orderNumber} token={viewer.token} />}
           </div>
+          <Suspense fallback={<div className="mt-4 h-24 animate-pulse rounded-xl bg-blush" />}>
+            <TrackingTimeline waybill={order.trackingNumber} courierCode={order.courierCode} />
+          </Suspense>
         </section>
       )}
 
@@ -76,6 +100,8 @@ export function OrderDetail({ order, isNew }: { order: Order; isNew: boolean }) 
                 <span className="flex-1">
                   <span className="block text-ink">{it.productName}</span>
                   <span className="text-muted">{it.colorName} · {it.quantity} × {rupiah(it.unitPrice)}</span>
+                  {order.status === "COMPLETED" && viewer.canReview && it.productId && !it.review && <ReviewForm orderItemId={it.id} productName={it.productName} />}
+                  {it.review && <span className="mt-1 block text-xs text-plum">Ulasan terkirim{it.review.status === "PENDING" ? " · menunggu moderasi" : ""}</span>}
                 </span>
                 <span className="font-medium">{rupiah(it.unitPrice * it.quantity)}</span>
               </li>
@@ -96,7 +122,7 @@ export function OrderDetail({ order, isNew }: { order: Order; isNew: boolean }) 
             <p className="mt-1 text-muted">{order.street}, {order.district}, {order.city}, {order.province} {order.postalCode}</p>
             <p className="mt-3 text-ink">{COURIER_NAMES[order.courierCode] ?? order.courierCode} {order.courierService}{order.courierEtd && <span className="text-muted"> · estimasi {order.courierEtd}</span>}</p>
             {order.trackingNumber ? (
-              <p className="mt-2">No. resi: <span className="font-mono font-semibold">{order.trackingNumber}</span></p>
+              <p className="mt-2">No. resi: <a href="#lacak" className="font-mono font-semibold underline">{order.trackingNumber}</a></p>
             ) : (
               <p className="mt-2 text-muted">No. resi tersedia setelah pesanan dikirim.</p>
             )}

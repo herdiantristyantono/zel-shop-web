@@ -1,4 +1,5 @@
 import "server-only";
+import { cacheLife, cacheTag } from "next/cache";
 import { getStoreSettings } from "./settings";
 
 /**
@@ -136,4 +137,44 @@ function mockRates(areaId: string, items: RateItem[], couriers: string[]): Rate[
       })),
     )
     .sort((a, b) => a.price - b.price);
+}
+
+// ───────────── Lacak resi ─────────────
+
+export type Tracking = { status: string; link: string | null; history: { note: string; status: string; at: string }[] };
+
+const TRACK_STATUS: Record<string, string> = {
+  confirmed: "Dikonfirmasi", allocated: "Kurir ditugaskan", picking_up: "Sedang dijemput", picked: "Dijemput kurir",
+  dropping_off: "Dalam pengantaran", delivered: "Terkirim", on_hold: "Ditahan", returned: "Dikembalikan", cancelled: "Dibatalkan",
+};
+export const trackingStatusLabel = (s: string) => TRACK_STATUS[s] ?? s.replace(/_/g, " ");
+
+/** Riwayat perjalanan paket (Biteship public tracking). Di-cache 30 menit per resi. */
+export async function trackWaybill(waybill: string, courierCode: string): Promise<Tracking | null> {
+  "use cache";
+  cacheLife({ stale: 300, revalidate: 1800, expire: 86_400 });
+  cacheTag(`tracking:${waybill}`);
+  if (isMockShipping()) {
+    const base = Date.now() - 30 * 3600_000;
+    return {
+      status: "dropping_off",
+      link: null,
+      history: [
+        { note: "Paket diterima di gerai asal (Bandung)", status: "picked", at: new Date(base).toISOString() },
+        { note: "Paket diproses di hub transit", status: "dropping_off", at: new Date(base + 8 * 3600_000).toISOString() },
+        { note: "Paket dibawa kurir menuju alamat penerima", status: "dropping_off", at: new Date(base + 26 * 3600_000).toISOString() },
+      ].reverse(),
+    };
+  }
+  try {
+    type R = { status: string; link?: string; history: { note: string; status: string; updated_at: string }[] };
+    const data = await biteship<R>(`/trackings/${encodeURIComponent(waybill)}/couriers/${encodeURIComponent(courierCode)}`);
+    return {
+      status: data.status,
+      link: data.link ?? null,
+      history: [...data.history].reverse().map((h) => ({ note: h.note, status: h.status, at: h.updated_at })),
+    };
+  } catch {
+    return null;
+  }
 }
