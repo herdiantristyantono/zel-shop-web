@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { getCategories } from "@/lib/catalog";
+import { rupiah } from "@/lib/format";
+import { getStorefront } from "@/lib/settings";
 import { AccountLink } from "./AccountLink";
 import { CartCount, CartLinkShell } from "./cart/CartCount";
 import { HeartIcon } from "./icons";
@@ -9,11 +11,11 @@ import { MobileMenu } from "./MobileMenu";
 import { SearchBox } from "./SearchBox";
 
 export async function Header() {
-  const categories = await getCategories();
+  const [categories, store] = await Promise.all([getCategories(), getStorefront()]);
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-cream/95 backdrop-blur supports-[backdrop-filter]:bg-cream/85">
       <div className="bg-plum px-4 py-2 text-center text-xs tracking-wide text-white">
-        Gratis ongkir min. belanja Rp 300.000 · Kode <strong>ZELBARU</strong> diskon 10% pembelian pertama
+        {store.freeShippingMin != null && <>Gratis ongkir min. belanja {rupiah(store.freeShippingMin)} · </>}Kode <strong>ZELBARU</strong> diskon 10% pembelian pertama
       </div>
       <div className="container-page flex h-16 items-center gap-1 sm:gap-2 lg:h-20 lg:gap-6">
         <MobileMenu categories={categories} />

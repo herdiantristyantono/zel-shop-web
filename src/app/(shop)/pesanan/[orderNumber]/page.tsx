@@ -5,6 +5,7 @@ import { OrderDetail } from "@/components/order/OrderDetail";
 import { isMidtransEnabled } from "@/lib/midtrans";
 import { cancelPendingOrder } from "@/lib/order-service";
 import { getOrderForViewer, isOrderOwner } from "@/lib/orders";
+import { getStorefront } from "@/lib/settings";
 
 export const metadata: Metadata = { title: "Status Pesanan", robots: { index: false, follow: false } };
 
@@ -30,5 +31,5 @@ async function OrderLoader({ params, searchParams }: PageProps<"/pesanan/[orderN
     order = (await getOrderForViewer(order.orderNumber, token))!;
   }
   const paymentMode = isMidtransEnabled() ? "midtrans" : process.env.NODE_ENV !== "production" ? "dev" : "manual";
-  return <OrderDetail order={order} isNew={sp.baru === "1"} viewer={{ token, paymentMode, canReview: await isOrderOwner(order.userId) }} />;
+  return <OrderDetail order={order} isNew={sp.baru === "1"} viewer={{ token, paymentMode, canReview: await isOrderOwner(order.userId), waNumber: (await getStorefront()).whatsapp }} />;
 }

@@ -13,7 +13,7 @@ Next.js 16 (App Router, Cache Components) · TypeScript · Tailwind CSS 4 · Pos
 - [x] **Tahap 1 — Fondasi:** skema database lengkap, auth (email/password, Google, reset password, rate limit), katalog (beranda, kategori, pencarian + autocomplete, filter, sortir, detail produk, promo, halaman info), SEO, data contoh 14 produk
 - [x] **Tahap 2 — Keranjang & checkout:** keranjang (tamu + digabung saat login, validasi stok realtime), wishlist, buku alamat, checkout 3 langkah dengan ongkir **Biteship**, kupon & gratis ongkir, pemotongan stok atomik, halaman status pesanan (juga untuk tamu), riwayat pesanan, email konfirmasi
 - [x] **Tahap 3 — Pembayaran & pengiriman:** **Midtrans** Snap + webhook terverifikasi, batas waktu bayar & pembatalan otomatis (stok & kupon kembali), lacak resi Biteship, "pesanan diterima", ulasan pembeli terverifikasi, notifikasi email + WhatsApp (Fonnte)
-- [ ] **Tahap 4 — Dashboard admin**
+- [x] **Tahap 4 — Dashboard admin:** peran Owner/Admin/Staf Gudang, ringkasan & grafik, produk + multi foto (Cloudinary) + varian/SKU, stok + riwayat + import/export CSV, pesanan (resi, catatan, invoice & label cetak/PDF), pelanggan, promo (kupon, flash sale, banner), moderasi ulasan, laporan (CSV/PDF), pengaturan toko & tim, notifikasi wishlist, GA4 & Meta Pixel dengan persetujuan cookie
 
 ## Struktur folder
 
@@ -39,10 +39,13 @@ src/
       akun/  akun/alamat/  akun/pesanan/
     api/auth/[...all]/   # endpoint Better Auth
     api/search/          # autocomplete
-    api/webhooks/midtrans/  api/cron/expire-orders/
+    api/webhooks/midtrans/  api/cron/expire-orders/  api/admin/ (upload, CSV)
+    admin/               # dashboard admin (layout sendiri, cek peran)
     sitemap.ts  robots.ts  layout.tsx  globals.css
   actions/               # Server Actions: cart, wishlist, address, checkout, order
-  components/            # UI (Header, ProductCard, galeri, filter, form auth, dll.)
+    admin/               # products, stock, orders, promo, reviews, settings, upload
+  components/            # UI toko (Header, ProductCard, galeri, filter, checkout, …)
+    admin/               # UI admin (tabel, grafik, form produk, editor promo, …)
   lib/
     prisma.ts            # Prisma client
     auth.ts              # konfigurasi Better Auth (server)
@@ -50,6 +53,7 @@ src/
     catalog.ts           # query katalog + cache
     cart.ts  pricing.ts  coupon.ts  shipping.ts (Biteship)  orders.ts  settings.ts  validation.ts
     midtrans.ts  payments.ts  order-service.ts (transisi status)  notify.ts  whatsapp.ts
+    admin.ts (peran & izin)  admin-stats.ts  upload.ts  csv.ts  wishlist-notify.ts
     email.ts  format.ts  site.ts
   generated/prisma/      # hasil `prisma generate` (tidak di-commit)
 ```
@@ -112,7 +116,7 @@ Tanpa `BITESHIP_API_KEY`, checkout memakai daftar wilayah & tarif **contoh** (di
 curl -H "Authorization: $BITESHIP_API_KEY" "https://api.biteship.com/v1/maps/areas?countries=ID&type=single&input=40111"
 ```
 
-4. Kurir aktif diatur di tabel `StoreSettings.activeCouriers` (default: jne, jnt, sicepat, anteraja, pos); di Tahap 4 bisa diubah dari dashboard.
+4. Kurir aktif, alamat asal kirim, dan gratis ongkir diatur di **Admin → Pengaturan**.
 
 ### Pembayaran (Midtrans)
 Tanpa `MIDTRANS_SERVER_KEY`, halaman pesanan menampilkan tombol **"Simulasikan pembayaran berhasil"** (hanya di lokal) untuk menguji alur.
@@ -141,14 +145,14 @@ Daftar di [fonnte.com](https://fonnte.com), hubungkan nomor WhatsApp toko (scan 
 2. **Project Settings → Database → Connection string**:
    - Untuk aplikasi (Vercel): *Transaction pooler* (port 6543) → `DATABASE_URL`. Set `DATABASE_POOL_MAX=5`.
    - Untuk migrasi dari komputer Anda: *Session/Direct* (port 5432).
-3. Jalankan migrasi & seed ke Supabase (sekali, dari komputer Anda), dengan `DATABASE_URL` diarahkan ke koneksi direct:
+3. Jalankan migrasi & seed ke Supabase (sekali, dari komputer Anda), dengan `DATABASE_URL` diarahkan ke koneksi direct. **Untuk toko sungguhan set `SEED_DEMO=false`** agar tidak ada produk, ulasan, atau pesanan contoh (ulasan palsu melanggar aturan konsumen & kebijakan Google):
 
 ```bash
 npx prisma migrate deploy
 ```
 
 ```bash
-npm run db:seed
+SEED_DEMO=false SEED_OWNER_EMAIL=emailanda@domain.com SEED_OWNER_PASSWORD='kata-sandi-kuat' npm run db:seed
 ```
 
 ## Deploy ke Vercel dengan domain sendiri
@@ -167,7 +171,31 @@ npm run db:seed
 ### Alternatif: VPS (Ubuntu)
 Instal Node 22 + PostgreSQL (atau pakai Supabase), lalu `npm ci && npx prisma migrate deploy && npm run build`, jalankan `npm start` dengan **PM2**, pasang **Nginx** sebagai reverse proxy ke port 3000, dan **Certbot** (`certbot --nginx -d domainanda.com`) untuk SSL gratis.
 
+## Dashboard admin
+
+Buka `/admin` dan masuk dengan akun owner. Tambahkan anggota tim di **Pengaturan → Tim admin** (mereka harus mendaftar akun dulu di `/daftar`).
+
+| Peran | Akses |
+|---|---|
+| **Owner** | Semua, termasuk pengaturan toko & tim |
+| **Admin** | Semua kecuali pengaturan |
+| **Staf Gudang** | Pesanan (proses, resi, cetak label/invoice, catatan) dan stok; tanpa angka penjualan |
+
+Alur harian: **Pesanan → filter "Dibayar"** → *Proses pesanan* → cetak **label** → input **nomor resi** (pembeli otomatis diberi tahu via email & WhatsApp) → selesai otomatis saat pembeli menekan "diterima", atau tandai manual.
+
+### Foto produk (Cloudinary)
+1. Daftar gratis di [cloudinary.com](https://cloudinary.com) → **Dashboard** → salin *Cloud name*, *API Key*, *API Secret* ke `CLOUDINARY_*`.
+2. Foto diunggah langsung dari browser ke Cloudinary dengan tanda tangan server (file tidak melewati server Anda), disimpan maks. 2000 px, dan ditampilkan dengan `f_auto,q_auto` → **WebP/AVIF otomatis** sesuai browser.
+3. Tanpa Cloudinary (hanya lokal), foto dikompres ke WebP 1600 px dan disimpan di `public/uploads/` (tidak di-commit).
+
+### Import/export produk (Excel)
+**Stok → Export CSV** menghasilkan file per varian (pemisah `;`, langsung terbaca Excel berbahasa Indonesia). Ubah kolom `stock`, `price`, `compare_at_price`, `variant_price`, atau `published` (1/0), simpan sebagai CSV, lalu **Import CSV**. Baris dicocokkan lewat `sku`; setiap perubahan stok tercatat di riwayat. Produk baru dibuat lewat form (agar foto & deskripsi lengkap).
+
+### Analitik (GA4 & Meta Pixel)
+Isi `NEXT_PUBLIC_GA_ID` dan/atau `NEXT_PUBLIC_META_PIXEL_ID`. Pengunjung melihat pemberitahuan cookie; skrip baru dimuat setelah mereka menekan **Setuju** (sesuai UU PDP). Event yang dikirim: `PageView`, `add_to_cart`/`AddToCart`, `begin_checkout`/`InitiateCheckout`, dan `purchase`/`Purchase` (saat pesanan sudah dibayar).
+
 ## Catatan teknis
-- **Cache:** data katalog di-cache dengan `"use cache"` + `cacheTag`. Dashboard admin (Tahap 4) memanggil `revalidateTag("products")` dsb. setelah mengubah data, sehingga perubahan langsung tampil.
+- **Cache:** data katalog di-cache dengan `"use cache"` + `cacheTag`; dashboard admin memanggil `updateTag(...)` setelah mengubah data sehingga perubahan langsung tampil di toko.
 - **Keamanan:** password di-hash (scrypt) oleh Better Auth; cookie sesi httpOnly + Secure di produksi; proteksi CSRF bawaan Better Auth (cek Origin); rate limit login 5×/menit, daftar 5×/menit, reset 3×/5 menit; semua parameter URL divalidasi di server; React meng-escape output (JSON-LD di-escape manual); redirect setelah login hanya ke path internal.
-- **Gambar produk:** saat ini ilustrasi SVG placeholder di `public/images`. Di Tahap 4, upload admin disimpan ke Cloudinary (kompresi & WebP otomatis) dan URL-nya disimpan di `ProductImage.url`.
+- **Gambar produk:** data contoh memakai ilustrasi SVG di `public/images`; ganti dengan foto asli lewat **Admin → Produk** (Cloudinary).
+- **Notifikasi wishlist:** saat harga produk turun / harga coret dipasang, atau stok kembali dari 0, pengguna yang menyimpan produk itu menerima email (+WhatsApp jika ada nomor), maks. 1× per 24 jam per produk.

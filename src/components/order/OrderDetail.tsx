@@ -9,6 +9,7 @@ import { site, whatsappLink } from "@/lib/site";
 import { Countdown } from "../Countdown";
 import { ProductImage } from "../ProductImage";
 import { ConfirmReceivedButton, PaymentPanel } from "./PaymentPanel";
+import { PurchaseTracker } from "./PurchaseTracker";
 import { ReviewForm } from "./ReviewForm";
 import { TrackingTimeline } from "./TrackingTimeline";
 
@@ -17,13 +18,16 @@ type Order = NonNullable<Awaited<ReturnType<typeof getOrderForViewer>>>;
 const FLOW = ["PENDING_PAYMENT", "PAID", "PROCESSING", "SHIPPED", "COMPLETED"] as const;
 const dt = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" });
 
-export type OrderViewer = { token: string | null; paymentMode: "midtrans" | "dev" | "manual"; canReview: boolean };
+export type OrderViewer = { token: string | null; paymentMode: "midtrans" | "dev" | "manual"; canReview: boolean; waNumber: string };
 
 export function OrderDetail({ order, isNew, viewer }: { order: Order; isNew: boolean; viewer: OrderViewer }) {
   const current = FLOW.indexOf(order.status as (typeof FLOW)[number]);
   const cancelled = order.status === "CANCELLED";
   return (
     <div className="space-y-8">
+      {order.paidAt && order.status !== "CANCELLED" && (
+        <PurchaseTracker orderNumber={order.orderNumber} total={order.total} items={order.items.map((i) => ({ id: i.sku, name: i.productName, price: i.unitPrice, quantity: i.quantity }))} />
+      )}
       {isNew && (
         <div className="rounded-2xl bg-plum p-6 text-white" role="status">
           <p className="font-serif text-3xl">Terima kasih, pesanan diterima!</p>
@@ -65,7 +69,7 @@ export function OrderDetail({ order, isNew, viewer }: { order: Order; isNew: boo
               orderNumber={order.orderNumber}
               token={viewer.token}
               mode={viewer.paymentMode}
-              whatsappHref={whatsappLink(`Halo ${site.name}, saya mau bayar pesanan ${order.orderNumber}`)}
+              whatsappHref={whatsappLink(`Halo ${site.name}, saya mau bayar pesanan ${order.orderNumber}`, viewer.waNumber)}
             />
           </Suspense>
         </section>

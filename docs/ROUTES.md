@@ -37,18 +37,23 @@ Status: ✅ selesai · 🔜 tahap berikutnya
 ## SEO
 `/sitemap.xml` ✅ · `/robots.txt` ✅ · metadata & Open Graph per produk/kategori ✅ · schema.org `Product` + `AggregateRating` + `Review` ✅
 
-## Dashboard admin (🔜 Tahap 4)
-| Route | Peran |
-|---|---|
-| `/admin` | Ringkasan penjualan, grafik, pesanan per status, terlaris, stok menipis | Owner, Admin |
-| `/admin/produk`, `/admin/produk/baru`, `/admin/produk/[id]` | CRUD produk, upload multi foto, varian, import/export | Owner, Admin, Staf (stok saja) |
-| `/admin/stok` | Riwayat & penyesuaian stok | Semua staf |
-| `/admin/pesanan`, `/admin/pesanan/[id]` | Status, resi, label & invoice PDF, catatan | Semua staf |
-| `/admin/pelanggan` | Daftar pelanggan | Owner, Admin |
-| `/admin/promo` | Kupon, flash sale, banner | Owner, Admin |
-| `/admin/ulasan` | Setujui / sembunyikan / balas | Owner, Admin |
-| `/admin/laporan` | Laporan per periode/produk/kategori, export Excel/PDF | Owner, Admin |
-| `/admin/pengaturan` | Info toko, kurir, pembayaran, halaman kebijakan, akun admin | Owner |
+## Dashboard admin ✅
+Akses dicek di server untuk setiap halaman **dan** setiap Server Action/endpoint (peran dibaca dari database, bukan cache sesi).
+
+| Route | Isi | Peran |
+|---|---|---|
+| `/admin` | Penjualan hari ini/7/30 hari, grafik pendapatan, pesanan per status, terlaris, stok menipis, pesanan terbaru | Semua staf (angka penjualan hanya Owner/Admin) |
+| `/admin/produk`, `/admin/produk/baru`, `/admin/produk/[id]` | Tambah/ubah/hapus produk, multi foto (seret-lepas, urutkan, foto utama, foto per warna), varian + SKU + stok, harga coret, SEO, tampil/sembunyi | Owner, Admin |
+| `/admin/stok` | Penyesuaian stok (barang masuk/retur/penyesuaian), stok menipis/habis, riwayat, import/export CSV | Semua staf (Staf: kolom stok saja saat import) |
+| `/admin/pesanan`, `/admin/pesanan/[id]` | Filter status/tanggal/pencarian, proses → kirim (resi) → selesai, catatan internal, riwayat | Semua staf (batalkan: Owner/Admin) |
+| `/admin/pesanan/[id]/invoice`, `/label` | Invoice A4 & label kirim 10×15 cm — cetak / simpan PDF | Semua staf |
+| `/admin/pelanggan` | Pelanggan, jumlah pesanan, total belanja | Owner, Admin |
+| `/admin/promo` | Kupon (persen/nominal/gratis ongkir, min. belanja, kuota, periode), flash sale (harga & kuota per produk), banner terjadwal | Owner, Admin |
+| `/admin/ulasan` | Setujui / sembunyikan / balas; rating produk dihitung ulang otomatis | Owner, Admin |
+| `/admin/laporan` | Periode bebas, per hari/bulan, per kategori, per produk; export CSV (Excel) & cetak PDF | Owner, Admin |
+| `/admin/pengaturan` | Info toko, WhatsApp, alamat asal kirim, kurir aktif, gratis ongkir, metode & batas bayar, media sosial, editor halaman kebijakan, tim admin | Owner |
+| `/api/admin/upload` | Upload lokal → WebP (hanya pengembangan, tanpa Cloudinary) | Owner, Admin |
+| `/api/admin/products.csv`, `/api/admin/report.csv` | Export CSV | Staf+ / Owner, Admin |
 
 ## Server Actions (`src/actions/`)
 | File | Fungsi |
@@ -57,6 +62,7 @@ Status: ✅ selesai · 🔜 tahap berikutnya
 | `wishlist.ts` | `toggleWishlist`, `moveWishlistToCart`, `setWishlistNotify` |
 | `address.ts` | `saveAddress`, `deleteAddress`, `setDefaultAddress` |
 | `checkout.ts` | `findAreas`, `getShippingOptions`, `previewTotals`, `placeOrder` |
+| `admin/*.ts` | products, stock (adjust & import CSV), orders, promo, reviews, settings, upload — semua lewat `adminAction(perm, …)` |
 | `order.ts` | `startPayment` (Snap), `syncPayment`, `cancelMyOrder`, `confirmReceived`, `submitReview`, `simulatePayment` (hanya lokal) |
 
 `placeOrder` menghitung ulang semua harga, ongkir (memanggil ulang Biteship), dan kupon di server; memotong stok secara atomik (`stock >= qty`) dalam satu transaksi bersama kuota kupon, pembuatan pesanan, dan pengosongan keranjang.

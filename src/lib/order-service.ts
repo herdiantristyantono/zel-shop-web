@@ -2,7 +2,7 @@ import "server-only";
 import { revalidateTag } from "next/cache";
 import type { Prisma } from "@/generated/prisma/client";
 import { TAGS } from "./catalog";
-import { loadForNotify, notifyLatePayment, notifyOrderCancelled, notifyOrderPaid } from "./notify";
+import { loadForNotify, notifyLatePayment, notifyOrderCancelled, notifyOrderPaid, notifyOrderShipped } from "./notify";
 import { activeFlashWhere } from "./pricing";
 import { prisma } from "./prisma";
 
@@ -107,4 +107,76 @@ export async function completeOrder(orderId: string, actorId?: string | null) {
     await tx.orderStatusHistory.create({ data: { orderId, status: "COMPLETED", note: "Pesanan diterima pembeli", actorId: actorId ?? null } });
     return true;
   });
+}
+
+// ───────────── Transisi oleh admin ─────────────
+
+/** PAID → PROCESSING (sedang dikemas) */
+export async function startProcessing(orderId: string, actorId: string) {
+  return prisma.$transaction(async (tx) => {
+    const moved = await tx.order.updateMany({ where: { id: orderId, status: "PAID" }, data: { status: "PROCESSING" } });
+    if (moved.count !== 1) return false;
+    await tx.orderStatusHistory.create({ data: { orderId, status: "PROCESSING", note: "Pesanan sedang dikemas", actorId } });
+    return true;
+  });
+}
+
+/** PAID/PROCESSING → SHIPPED dengan nomor resi; atau perbarui resi saat sudah SHIPPED. Mengirim notifikasi ke pembeli. */
+export async function shipOrder(orderId: string, trackingNumber: string, actorId: string) {
+  const resi = trackingNumber.trim().toUpperCase();
+  const r = await prisma.$transaction(async (tx) => {
+    const moved = await tx.order.updateMany({ where: { id: orderId, status: { in: ["PAID", "PROCESSING"] } }, data: { status: "SHIPPED", shippedAt: new Date(), trackingNumber: resi } });
+    if (moved.count === 1) {
+      await tx.orderStatusHistory.create({ data: { orderId, status: "SHIPPED", note: `Dikirim · resi ${resi}`, actorId } });
+      return "SHIPPED" as const;
+    }
+    const fixed = await tx.order.updateMany({ where: { id: orderId, status: "SHIPPED" }, data: { trackingNumber: resi } });
+    if (fixed.count === 1) {
+      await tx.orderStatusHistory.create({ data: { orderId, status: "SHIPPED", note: `Resi diperbarui: ${resi}`, actorId } });
+      return "UPDATED" as const;
+    }
+    return null;
+  });
+  if (r) await notifyOrderShipped(await loadForNotify(orderId));
+  return r;
+}
+
+/** SHIPPED → COMPLETED oleh admin (mis. pembeli tidak menekan "diterima"). */
+export async function adminCompleteOrder(orderId: string, actorId: string) {
+  return prisma.$transaction(async (tx) => {
+    const moved = await tx.order.updateMany({ where: { id: orderId, status: "SHIPPED" }, data: { status: "COMPLETED", completedAt: new Date() } });
+    if (moved.count !== 1) return false;
+    await tx.orderStatusHistory.create({ data: { orderId, status: "COMPLETED", note: "Ditandai selesai oleh admin", actorId } });
+    return true;
+  });
+}
+
+/**
+ * Batalkan pesanan yang SUDAH dibayar (PAID/PROCESSING): stok & kupon kembali, jumlah terjual dikurangi.
+ * Pengembalian dana dilakukan manual (dashboard Midtrans / transfer) — dicatat di riwayat.
+ */
+export async function cancelPaidOrder(orderId: string, reason: string, actorId: string) {
+  const done = await prisma.$transaction(async (tx) => {
+    const moved = await tx.order.updateMany({
+      where: { id: orderId, status: { in: ["PAID", "PROCESSING"] } },
+      data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: reason },
+    });
+    if (moved.count !== 1) return false;
+    const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
+    for (const item of order.items) {
+      if (item.variantId) {
+        const v = await tx.productVariant.update({ where: { id: item.variantId }, data: { stock: { increment: item.quantity } }, select: { stock: true } }).catch(() => null);
+        if (v) await tx.stockMovement.create({ data: { variantId: item.variantId, change: item.quantity, balance: v.stock, reason: "ORDER_CANCELLED", note: order.orderNumber, userId: actorId } });
+      }
+      if (item.productId) await tx.product.updateMany({ where: { id: item.productId, soldCount: { gte: item.quantity } }, data: { soldCount: { decrement: item.quantity } } });
+    }
+    if (order.couponId) await tx.coupon.updateMany({ where: { id: order.couponId, usedCount: { gt: 0 } }, data: { usedCount: { decrement: 1 } } });
+    await tx.orderStatusHistory.create({ data: { orderId, status: "CANCELLED", note: `${reason} — dana perlu dikembalikan ke pembeli`, actorId } });
+    return true;
+  });
+  if (done) {
+    revalidateTag(TAGS.products, "max");
+    await notifyOrderCancelled(await loadForNotify(orderId));
+  }
+  return done;
 }

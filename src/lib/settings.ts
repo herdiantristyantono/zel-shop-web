@@ -1,6 +1,7 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "./prisma";
+import { site } from "./site";
 
 export async function getStoreSettings() {
   "use cache";
@@ -40,3 +41,18 @@ export const PAYMENT_METHODS: Record<string, { label: string; hint: string }> = 
   other_qris: { label: "OVO / DANA / LinkAja", hint: "Lewat QRIS di aplikasi Anda" },
   credit_card: { label: "Kartu Kredit/Debit", hint: "Visa, Mastercard, JCB" },
 };
+
+/** Data toko untuk etalase (WhatsApp, sosial media, gratis ongkir) dengan fallback ke konfigurasi env. */
+export async function getStorefront() {
+  const s = await getStoreSettings();
+  return {
+    whatsapp: s.whatsappNumber || site.whatsapp,
+    freeShippingMin: s.freeShippingMin,
+    social: {
+      instagram: s.instagramUrl ?? site.social.instagram,
+      tiktok: s.tiktokUrl ?? site.social.tiktok,
+      shopee: s.shopeeUrl ?? site.social.shopee,
+      tokopedia: s.tokopediaUrl ?? site.social.tokopedia,
+    },
+  };
+}

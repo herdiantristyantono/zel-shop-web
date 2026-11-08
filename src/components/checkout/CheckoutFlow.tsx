@@ -7,6 +7,7 @@ import { getShippingOptions, placeOrder, previewTotals } from "@/actions/checkou
 import type { CartLine } from "@/lib/cart";
 import type { Totals } from "@/lib/coupon";
 import { rupiah } from "@/lib/format";
+import { track } from "../Analytics";
 import type { Rate } from "@/lib/shipping";
 import { AddressFields, draftToInput, emptyAddress, type AddressDraft } from "../account/AddressFields";
 import type { SavedAddress } from "../account/AddressBook";
@@ -27,6 +28,10 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
   const router = useRouter();
   const [step, setStep] = useState(0);
   const topRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    track("begin_checkout", { value: subtotal, items: lines.map((l) => ({ id: l.sku, name: l.productName, price: l.unitPrice, quantity: l.quantity })) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const firstRender = useRef(true);
   useEffect(() => {
     if (firstRender.current) {

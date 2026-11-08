@@ -8,6 +8,7 @@ import { Reviews } from "@/components/product/Reviews";
 import { SectionHeading } from "@/components/SectionHeading";
 import { WhatsAppProduct } from "@/components/WhatsAppButton";
 import { getProduct, getProductSlugs, getRelatedProducts, type ProductDetail } from "@/lib/catalog";
+import { getStorefront } from "@/lib/settings";
 import { site } from "@/lib/site";
 
 export async function generateStaticParams() {
@@ -39,7 +40,7 @@ export default function ProductPage({ params }: PageProps<"/produk/[slug]">) {
 async function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const product = await getProduct((await params).slug);
   if (!product) notFound();
-  const related = await getRelatedProducts(product.id, product.categoryId);
+  const [related, store] = await Promise.all([getRelatedProducts(product.id, product.categoryId), getStorefront()]);
 
   return (
     <>
@@ -50,7 +51,7 @@ async function ProductContent({ params }: { params: Promise<{ slug: string }> })
           <Link href="/" className="hover:text-plum">Beranda</Link> / <Link href={`/kategori/${product.category.slug}`} className="hover:text-plum">{product.category.name}</Link> /{" "}
           <span className="text-ink">{product.name}</span>
         </nav>
-        <ProductInteractive product={product} />
+        <ProductInteractive product={product} waNumber={store.whatsapp} />
 
         <div className="mt-16 grid gap-14 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
           <section aria-labelledby="deskripsi">

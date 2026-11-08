@@ -18,7 +18,7 @@ const cardInclude = () =>
     images: { orderBy: { sortOrder: "asc" }, take: 2, select: { url: true, alt: true } },
     variants: { where: { isActive: true }, orderBy: { sortOrder: "asc" }, select: { colorName: true, colorHex: true, stock: true } },
     category: { select: { name: true, slug: true } },
-    flashSaleItems: { where: activeFlashWhere(), select: { salePrice: true, flashSale: { select: { endsAt: true } } }, take: 1 },
+    flashSaleItems: { where: activeFlashWhere(), select: { salePrice: true, quota: true, soldCount: true, flashSale: { select: { endsAt: true } } } },
   }) satisfies Prisma.ProductInclude;
 
 type CardRow = Prisma.ProductGetPayload<{ include: ReturnType<typeof cardInclude> }>;
@@ -41,7 +41,8 @@ export type ProductCardData = {
 
 /** Harga efektif: harga flash sale (jika aktif) → harga jual. Harga coret = harga normal tertinggi. */
 function toCard(p: CardRow): ProductCardData {
-  const flash = p.flashSaleItems[0];
+  // Flash sale berlaku selama kuota belum habis
+  const flash = p.flashSaleItems.find((f) => f.quota == null || f.soldCount < f.quota);
   const price = flash ? flash.salePrice : p.price;
   const compareAt = flash ? (p.compareAtPrice ?? p.price) : p.compareAtPrice;
   return {
@@ -260,7 +261,7 @@ export async function getProduct(slug: string) {
     compartments: p.compartments,
     metaTitle: p.metaTitle,
     metaDescription: p.metaDescription,
-    flashEndsAt: p.flashSaleItems[0]?.flashSale.endsAt.toISOString() ?? null,
+    flashEndsAt: card.isFlashSale ? (p.flashSaleItems.find((f) => f.quota == null || f.soldCount < f.quota)?.flashSale.endsAt.toISOString() ?? null) : null,
     gallery: p.images,
     variants: p.variants,
     reviews: p.reviews.map((r) => ({

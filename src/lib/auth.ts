@@ -47,6 +47,7 @@ export const auth = betterAuth({
       phone: { type: "string", required: false },
       // input:false → pengguna tidak bisa mengatur perannya sendiri saat daftar
       role: { type: "string", required: false, defaultValue: "CUSTOMER", input: false },
+      banned: { type: "boolean", required: false, defaultValue: false, input: false },
     },
   },
   session: {

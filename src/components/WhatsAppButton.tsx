@@ -26,12 +26,12 @@ export function WhatsAppProduct({ name }: { name: string }) {
   return null;
 }
 
-export function WhatsAppButton() {
+export function WhatsAppButton({ number }: { number: string }) {
   const product = useSyncExternalStore(store.subscribe, () => current, () => null);
   const message = product ? `Halo ${site.name}, saya mau tanya produk ${product}` : `Halo ${site.name}, saya mau tanya produk`;
   return (
     <a
-      href={whatsappLink(message)}
+      href={whatsappLink(message, number)}
       target="_blank"
       rel="noopener noreferrer"
       className="fixed bottom-5 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#1E7E45] text-white shadow-lg shadow-ink/20 transition-transform hover:scale-105 sm:bottom-6 sm:right-6"

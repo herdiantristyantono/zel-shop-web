@@ -1,6 +1,8 @@
+import { Analytics } from "@/components/Analytics";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
+import { getStorefront } from "@/lib/settings";
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,7 +13,13 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
       <Header />
       <main id="konten">{children}</main>
       <Footer />
-      <WhatsAppButton />
+      <StoreWhatsApp />
+      <Analytics />
     </>
   );
+}
+
+async function StoreWhatsApp() {
+  const { whatsapp } = await getStorefront();
+  return <WhatsAppButton number={whatsapp} />;
 }

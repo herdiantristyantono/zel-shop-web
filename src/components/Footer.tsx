@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import Link from "next/link";
+import { getStorefront } from "@/lib/settings";
 import { site } from "@/lib/site";
 import { InstagramIcon, TiktokIcon } from "./icons";
 import { Logo } from "./Logo";
@@ -33,7 +34,8 @@ const groups = [
   },
 ];
 
-export function Footer() {
+export async function Footer() {
+  const { social } = await getStorefront();
   return (
     <footer className="mt-20 bg-plum text-blush">
       <div className="container-page grid gap-10 py-14 md:grid-cols-[1.4fr_repeat(3,1fr)]">
@@ -41,14 +43,14 @@ export function Footer() {
           <Logo light />
           <p className="max-w-xs text-sm leading-relaxed text-blush/90">{site.description}</p>
           <div className="flex gap-2">
-            <a href={site.social.instagram} target="_blank" rel="noopener noreferrer" className="flex h-11 w-11 items-center justify-center rounded-full border border-blush/30 hover:bg-white/10" aria-label="Instagram Zel Shop">
+            <a href={social.instagram} target="_blank" rel="noopener noreferrer" className="flex h-11 w-11 items-center justify-center rounded-full border border-blush/30 hover:bg-white/10" aria-label="Instagram Zel Shop">
               <InstagramIcon size={20} />
             </a>
-            <a href={site.social.tiktok} target="_blank" rel="noopener noreferrer" className="flex h-11 w-11 items-center justify-center rounded-full border border-blush/30 hover:bg-white/10" aria-label="TikTok Zel Shop">
+            <a href={social.tiktok} target="_blank" rel="noopener noreferrer" className="flex h-11 w-11 items-center justify-center rounded-full border border-blush/30 hover:bg-white/10" aria-label="TikTok Zel Shop">
               <TiktokIcon size={20} />
             </a>
-            <a href={site.social.shopee} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center rounded-full border border-blush/30 px-4 text-xs hover:bg-white/10">Shopee</a>
-            <a href={site.social.tokopedia} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center rounded-full border border-blush/30 px-4 text-xs hover:bg-white/10">Tokopedia</a>
+            <a href={social.shopee} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center rounded-full border border-blush/30 px-4 text-xs hover:bg-white/10">Shopee</a>
+            <a href={social.tokopedia} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center rounded-full border border-blush/30 px-4 text-xs hover:bg-white/10">Tokopedia</a>
           </div>
         </div>
         {groups.map((g) => (

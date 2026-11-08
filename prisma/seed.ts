@@ -10,6 +10,48 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: proc
 const DAY = 86_400_000;
 
 async function main() {
+  // SEED_DEMO=false → hanya data dasar (kategori, halaman, pengaturan, owner). Aman untuk produksi:
+  // tidak menghapus katalog dan TIDAK membuat ulasan/pesanan contoh.
+  const demo = process.env.SEED_DEMO !== "false";
+  if (demo) await seedDemo();
+  else {
+    for (const [i, c] of categories.entries()) {
+      await prisma.category.upsert({
+        where: { slug: c.slug },
+        update: {},
+        create: { name: c.name, slug: c.slug, description: c.description, imageUrl: `/images/categories/${c.slug}.svg`, sortOrder: i },
+      });
+    }
+    console.log("✔ Kategori dasar dibuat (tanpa data contoh)");
+  }
+
+  for (const page of pages) {
+    await prisma.page.upsert({ where: { slug: page.slug }, update: page, create: page });
+  }
+
+  await prisma.storeSettings.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      tagline: "Dompet & Tas Wanita",
+      email: "halo@zelshop.id",
+      whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "6281234567890",
+      address: "Jl. Contoh No. 1, Bandung, Jawa Barat",
+      originCity: "Bandung",
+      originPostalCode: "40111",
+      freeShippingMin: 300000,
+      freeShippingMax: 20000,
+      instagramUrl: "https://instagram.com/zelshop.id",
+      tiktokUrl: "https://tiktok.com/@zelshop.id",
+    },
+  });
+
+  await seedOwner();
+  console.log("✔ Seed selesai");
+}
+
+async function seedDemo() {
   console.log("Menghapus data katalog lama…");
   await prisma.$transaction([
     prisma.flashSaleItem.deleteMany(),
@@ -116,30 +158,6 @@ async function main() {
     create: { code: "GRATISONGKIR", description: "Gratis ongkir maks. Rp 20.000, min. belanja Rp 200.000", type: "FREE_SHIPPING", value: 0, maxDiscount: 20000, minPurchase: 200000, quota: 1000, perUserLimit: 3, startsAt: new Date(), endsAt: new Date(Date.now() + 90 * DAY) },
   });
 
-  for (const page of pages) {
-    await prisma.page.upsert({ where: { slug: page.slug }, update: page, create: page });
-  }
-
-  await prisma.storeSettings.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
-      id: 1,
-      tagline: "Dompet & Tas Wanita",
-      email: "halo@zelshop.id",
-      whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "6281234567890",
-      address: "Jl. Contoh No. 1, Bandung, Jawa Barat",
-      originCity: "Bandung",
-      originPostalCode: "40111",
-      freeShippingMin: 300000,
-      freeShippingMax: 20000,
-      instagramUrl: "https://instagram.com/zelshop.id",
-      tiktokUrl: "https://tiktok.com/@zelshop.id",
-    },
-  });
-
-  await seedOwner();
-  console.log("✔ Seed selesai");
 }
 
 async function seedOwner() {

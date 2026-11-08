@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { addToCart } from "@/actions/cart";
+import { track } from "../Analytics";
 import type { ProductDetail } from "@/lib/catalog";
 import { site, whatsappLink } from "@/lib/site";
 import { Countdown } from "../Countdown";
@@ -12,9 +13,9 @@ import { ProductImage } from "../ProductImage";
 import { Stars } from "../Stars";
 import { WishlistButton } from "./WishlistButton";
 
-type Props = { product: ProductDetail };
+type Props = { product: ProductDetail; waNumber: string };
 
-export function ProductInteractive({ product }: Props) {
+export function ProductInteractive({ product, waNumber }: Props) {
   const firstInStock = product.variants.find((v) => v.stock > 0) ?? product.variants[0];
   const [variantId, setVariantId] = useState(firstInStock?.id);
   const [qty, setQty] = useState(1);
@@ -112,6 +113,7 @@ export function ProductInteractive({ product }: Props) {
                 if (!variantId) return;
                 const res = await addToCart({ variantId, quantity: qty });
                 setFeedback(res.ok ? { ok: true, text: res.message ?? "Ditambahkan" } : { ok: false, text: res.error });
+                if (res.ok) track("add_to_cart", { value: price * qty, items: [{ id: variant?.sku ?? product.id, name: product.name, price, quantity: qty }] });
               })
             }
           >
@@ -134,7 +136,7 @@ export function ProductInteractive({ product }: Props) {
         </div>
 
         <a
-          href={whatsappLink(`Halo ${site.name}, saya mau tanya produk ${product.name}${variant ? ` (warna ${variant.colorName})` : ""}`)}
+          href={whatsappLink(`Halo ${site.name}, saya mau tanya produk ${product.name}${variant ? ` (warna ${variant.colorName})` : ""}`, waNumber)}
           target="_blank"
           rel="noopener noreferrer"
           className="btn-outline mt-3 h-12 w-full"

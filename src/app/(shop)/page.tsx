@@ -7,10 +7,10 @@ import { ProductImage } from "@/components/ProductImage";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Stars } from "@/components/Stars";
 import { getCategories, getHomeData } from "@/lib/catalog";
-import { site } from "@/lib/site";
+import { getStorefront } from "@/lib/settings";
 
 export default async function HomePage() {
-  const [home, categories] = await Promise.all([getHomeData(), getCategories()]);
+  const [home, categories, { social }] = await Promise.all([getHomeData(), getCategories(), getStorefront()]);
 
   return (
     <>
@@ -99,8 +99,8 @@ export default async function HomePage() {
         <h2 className="text-3xl sm:text-4xl">Inspirasi gaya setiap hari</h2>
         <p className="mx-auto mt-3 max-w-md text-muted">Koleksi baru, tips padu padan, dan promo eksklusif lebih dulu di Instagram & TikTok kami.</p>
         <div className="mt-6 flex justify-center gap-3">
-          <a href={site.social.instagram} target="_blank" rel="noopener noreferrer" className="btn-primary">Instagram</a>
-          <a href={site.social.tiktok} target="_blank" rel="noopener noreferrer" className="btn-outline">TikTok</a>
+          <a href={social.instagram} target="_blank" rel="noopener noreferrer" className="btn-primary">Instagram</a>
+          <a href={social.tiktok} target="_blank" rel="noopener noreferrer" className="btn-outline">TikTok</a>
         </div>
       </section>
     </>
