@@ -1,101 +1,101 @@
-# Rancangan Database Zel Shop
+# Zel Shop Database Design
 
-PostgreSQL + Prisma 7. Sumber kebenaran: [`prisma/schema.prisma`](../prisma/schema.prisma).
-Skema ini sudah mencakup **keempat tahap** (katalog, keranjang/checkout, pembayaran/ongkir, admin) agar tahap berikutnya tidak memerlukan migrasi besar.
+PostgreSQL + Prisma 7. Source of truth: [`prisma/schema.prisma`](../prisma/schema.prisma).
+The schema already covers **all four phases** (catalog, cart/checkout, payment/shipping, admin) so later phases don't require large migrations.
 
-**Konvensi**
-- Uang disimpan sebagai `Int` Rupiah (tanpa desimal). Berat dalam **gram**.
-- Data pesanan (alamat, nama produk, harga) di-*snapshot* ke `Order`/`OrderItem` supaya riwayat tidak berubah saat produk/alamat diedit.
-- `soldCount`, `ratingAvg`, `ratingCount` di `Product` adalah denormalisasi untuk sortir cepat; diperbarui saat pesanan selesai / ulasan disetujui.
+**Conventions**
+- Money is stored as `Int` Rupiah (no decimals). Weight is in **grams**.
+- Order data (address, product name, price) is *snapshotted* into `Order`/`OrderItem` so history doesn't change when products/addresses are edited.
+- `soldCount`, `ratingAvg`, and `ratingCount` on `Product` are denormalized for fast sorting; they are updated when an order completes / a review is approved.
 
-## Diagram relasi
+## Relationship diagram
 
 ```mermaid
 erDiagram
-  User ||--o{ Session : punya
+  User ||--o{ Session : has
   User ||--o{ Account : "login (password/Google)"
-  User ||--o{ Address : "buku alamat"
-  User ||--o| Cart : keranjang
+  User ||--o{ Address : "address book"
+  User ||--o| Cart : cart
   User ||--o{ WishlistItem : wishlist
-  User ||--o{ Order : pesanan
-  User ||--o{ Review : ulasan
+  User ||--o{ Order : orders
+  User ||--o{ Review : reviews
 
-  Category ||--o{ Product : berisi
-  Product ||--o{ ProductVariant : "varian warna"
-  Product ||--o{ ProductImage : foto
-  ProductVariant ||--o{ ProductImage : "foto per warna"
-  ProductVariant ||--o{ StockMovement : "riwayat stok"
+  Category ||--o{ Product : contains
+  Product ||--o{ ProductVariant : "color variants"
+  Product ||--o{ ProductImage : photos
+  ProductVariant ||--o{ ProductImage : "photos per color"
+  ProductVariant ||--o{ StockMovement : "stock history"
 
-  Cart ||--o{ CartItem : isi
+  Cart ||--o{ CartItem : items
   ProductVariant ||--o{ CartItem : ""
   Product ||--o{ WishlistItem : ""
 
-  Order ||--o{ OrderItem : item
-  Order ||--o{ Payment : pembayaran
-  Order ||--o{ OrderStatusHistory : "riwayat status"
-  Order ||--o{ OrderNote : "catatan internal"
-  Coupon ||--o{ Order : dipakai
-  OrderItem ||--o| Review : "1 ulasan per item"
-  Review ||--o{ ReviewImage : foto
+  Order ||--o{ OrderItem : items
+  Order ||--o{ Payment : payments
+  Order ||--o{ OrderStatusHistory : "status history"
+  Order ||--o{ OrderNote : "internal notes"
+  Coupon ||--o{ Order : "applied to"
+  OrderItem ||--o| Review : "1 review per item"
+  Review ||--o{ ReviewImage : photos
 
-  FlashSale ||--o{ FlashSaleItem : produk
+  FlashSale ||--o{ FlashSaleItem : products
   Product ||--o{ FlashSaleItem : ""
 ```
 
-## Tabel
+## Tables
 
-### Autentikasi (dikelola Better Auth)
-| Tabel | Isi penting |
+### Authentication (managed by Better Auth)
+| Table | Key contents |
 |---|---|
-| `user` | nama, email (unik), `phone`, **`role`** (`CUSTOMER`, `STAFF` = staf gudang, `ADMIN`, `OWNER`), `banned` |
-| `session` | token sesi (cookie httpOnly), kedaluwarsa, IP, user agent |
-| `account` | provider (`credential` / `google`); kolom `password` berisi **hash scrypt** |
-| `verification` | token reset kata sandi / verifikasi email |
-| `rate_limit` | penghitung rate-limit login/daftar/reset (aman untuk serverless) |
+| `user` | name, email (unique), `phone`, **`role`** (`CUSTOMER`, `STAFF` = warehouse staff, `ADMIN`, `OWNER`), `banned` |
+| `session` | session token (httpOnly cookie), expiry, IP, user agent |
+| `account` | provider (`credential` / `google`); the `password` column holds a **scrypt hash** |
+| `verification` | password reset / email verification tokens |
+| `rate_limit` | rate-limit counters for login/sign-up/reset (serverless-safe) |
 
-### Katalog
-| Tabel | Isi penting |
+### Catalog
+| Table | Key contents |
 |---|---|
-| `Category` | nama, `slug` unik (URL), gambar, urutan, aktif |
-| `Product` | nama, `slug`, deskripsi, bahan, `size` (MINI/SMALL/MEDIUM/LARGE), P×L×T cm, berat, slot kartu, ruang, `price`, `compareAtPrice` (harga coret), tampil/sembunyi, unggulan, `minStockAlert`, meta SEO |
-| `ProductVariant` | warna (`colorName`, `colorHex`), **SKU unik**, **stok**, harga khusus opsional |
-| `ProductImage` | URL (Cloudinary/Supabase), alt, urutan, `isPrimary`, opsional terkait varian warna |
-| `StockMovement` | log setiap perubahan stok: +/−, saldo, alasan (`RESTOCK`, `ORDER`, `ORDER_CANCELLED`, …), pelaku |
+| `Category` | name, unique `slug` (URL), image, sort order, active |
+| `Product` | name, `slug`, description, material, `size` (MINI/SMALL/MEDIUM/LARGE), L×W×H cm, weight, card slots, compartments, `price`, `compareAtPrice` (strikethrough price), visible/hidden, featured, `minStockAlert`, SEO meta |
+| `ProductVariant` | color (`colorName`, `colorHex`), **unique SKU**, **stock**, optional override price |
+| `ProductImage` | URL (Cloudinary/Supabase), alt, sort order, `isPrimary`, optionally linked to a color variant |
+| `StockMovement` | log of every stock change: +/−, balance, reason (`RESTOCK`, `ORDER`, `ORDER_CANCELLED`, …), actor |
 
-### Keranjang & wishlist
-| Tabel | Isi penting |
+### Cart & wishlist
+| Table | Key contents |
 |---|---|
-| `Cart` | milik `userId` **atau** `guestToken` (cookie tamu). Saat login, keranjang tamu digabung ke keranjang akun |
-| `CartItem` | varian + jumlah, unik per (cart, varian) |
-| `WishlistItem` | user + produk, preferensi notifikasi diskon / stok kembali |
-| `Address` | label, penerima, telepon, provinsi/kota/kecamatan/kelurahan, kode pos, jalan, `areaId` API ongkir, default |
+| `Cart` | owned by a `userId` **or** a `guestToken` (guest cookie). On login, the guest cart is merged into the account cart |
+| `CartItem` | variant + quantity, unique per (cart, variant) |
+| `WishlistItem` | user + product, notification preferences for discounts / back in stock |
+| `Address` | label, recipient, phone, province/city/district/subdistrict, postal code, street, shipping API `areaId`, default |
 
-### Pesanan & pembayaran
-| Tabel | Isi penting |
+### Orders & payments
+| Table | Key contents |
 |---|---|
-| `Order` | `orderNumber` (ZEL-YYYYMMDD-XXXX), status (`PENDING_PAYMENT → PAID → PROCESSING → SHIPPED → COMPLETED` / `CANCELLED`), snapshot alamat, kurir & layanan & estimasi, berat total, resi, subtotal/diskon/ongkir/potongan ongkir/total, kupon, batas waktu bayar, cap waktu setiap status, `accessToken` (tamu bisa melihat status tanpa login) |
-| `OrderItem` | snapshot nama, warna, SKU, gambar, harga satuan, jumlah, berat |
-| `OrderStatusHistory` | jejak perubahan status (oleh admin atau webhook) |
-| `OrderNote` | catatan internal admin |
-| `Payment` | provider (midtrans/xendit), `providerRef` unik (idempotensi webhook), metode, nominal, status, VA/QR/redirect URL, payload mentah |
+| `Order` | `orderNumber` (ZEL-YYYYMMDD-XXXX), status (`PENDING_PAYMENT → PAID → PROCESSING → SHIPPED → COMPLETED` / `CANCELLED`), address snapshot, courier & service & ETA, total weight, waybill, subtotal/discount/shipping/shipping discount/total, coupon, payment deadline, timestamp for each status, `accessToken` (guests can view the status without logging in) |
+| `OrderItem` | snapshot of name, color, SKU, image, unit price, quantity, weight |
+| `OrderStatusHistory` | trail of status changes (by admin or webhook) |
+| `OrderNote` | internal admin notes |
+| `Payment` | provider (midtrans/xendit), unique `providerRef` (webhook idempotency), method, amount, status, VA/QR/redirect URL, raw payload |
 
-### Ulasan
-| Tabel | Isi penting |
+### Reviews
+| Table | Key contents |
 |---|---|
-| `Review` | rating 1–5, teks, status moderasi (`PENDING`/`APPROVED`/`HIDDEN`), balasan admin. **`orderItemId` unik** → hanya pembeli terverifikasi, satu ulasan per item yang dibeli |
-| `ReviewImage` | foto ulasan |
+| `Review` | rating 1–5, text, moderation status (`PENDING`/`APPROVED`/`HIDDEN`), admin reply. **Unique `orderItemId`** → verified buyers only, one review per purchased item |
+| `ReviewImage` | review photos |
 
-### Promo & konten
-| Tabel | Isi penting |
+### Promos & content
+| Table | Key contents |
 |---|---|
-| `Coupon` | kode unik, tipe (`PERCENT`/`FIXED`/`FREE_SHIPPING`), nilai, maks. potongan, min. belanja, kuota & terpakai, batas per user, masa berlaku |
-| `FlashSale` / `FlashSaleItem` | periode, harga flash per produk, kuota & terjual |
-| `Banner` | judul, subjudul, gambar desktop/mobile, tautan, jadwal tayang |
-| `Testimonial` | testimoni beranda |
-| `Page` | halaman Tentang/Kebijakan/FAQ/Kontak (Markdown, bisa diedit admin) |
-| `StoreSettings` | satu baris: info toko, WhatsApp, alamat asal kirim, kurir aktif, metode bayar, batas waktu bayar, gratis ongkir, tautan sosial |
+| `Coupon` | unique code, type (`PERCENT`/`FIXED`/`FREE_SHIPPING`), value, max. discount, min. spend, quota & used count, per-user limit, validity period |
+| `FlashSale` / `FlashSaleItem` | period, flash price per product, quota & sold count |
+| `Banner` | title, subtitle, desktop/mobile image, link, display schedule |
+| `Testimonial` | home page testimonials |
+| `Page` | About/Policy/FAQ/Contact pages (Markdown, editable by admin) |
+| `StoreSettings` | single row: store info, WhatsApp, origin address, active couriers, payment methods, payment deadline, free shipping, social links |
 
-## Alur stok
-1. Checkout → dalam satu transaksi: `UPDATE ProductVariant SET stock = stock - n WHERE id = ? AND stock >= n` (mencegah *overselling*) + `StockMovement(ORDER)`.
-2. Pembayaran kedaluwarsa / dibatalkan → stok dikembalikan + `StockMovement(ORDER_CANCELLED)`.
-3. Restock admin → `StockMovement(RESTOCK)` → memicu notifikasi wishlist "stok kembali".
+## Stock flow
+1. Checkout → in a single transaction: `UPDATE ProductVariant SET stock = stock - n WHERE id = ? AND stock >= n` (prevents *overselling*) + `StockMovement(ORDER)`.
+2. Payment expired / cancelled → stock restored + `StockMovement(ORDER_CANCELLED)`.
+3. Admin restock → `StockMovement(RESTOCK)` → triggers the "back in stock" wishlist notification.

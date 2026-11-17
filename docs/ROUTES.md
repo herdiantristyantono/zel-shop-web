@@ -1,77 +1,79 @@
-# Daftar Halaman & Route
+# Pages & Routes
 
-Status: ✅ selesai · 🔜 tahap berikutnya
+Status: ✅ done · 🔜 next phase
 
-## Toko (pengunjung & pembeli)
-| Route | Halaman | Status |
+Route paths and query parameters are in Indonesian because they are the store's public URLs.
+
+## Storefront (visitors & buyers)
+| Route | Page | Status |
 |---|---|---|
-| `/` | Beranda: banner promo, kategori, flash sale + hitung mundur, terbaru, terlaris, testimoni | ✅ |
-| `/produk` | Semua produk + pencarian (`?q=`), filter, sortir, paginasi | ✅ |
-| `/kategori/[slug]` | Produk per kategori (filter & sortir sama) | ✅ |
-| `/produk/[slug]` | Detail produk: galeri (swipe, zoom), varian warna, stok, spesifikasi, ulasan, produk terkait, JSON-LD | ✅ |
-| `/promo` | Kupon aktif, flash sale, produk diskon | ✅ |
-| `/info/[slug]` | tentang-kami, cara-belanja, kebijakan-pengembalian, syarat-ketentuan, kebijakan-privasi, faq, kontak | ✅ |
-| `/masuk`, `/daftar` | Login & daftar (email/password + Google) | ✅ |
-| `/lupa-password`, `/reset-password` | Reset kata sandi via email | ✅ |
-| `/akun` | Ringkasan akun | ✅ |
-| `/akun/pesanan` | Riwayat pesanan (detail di `/pesanan/[orderNumber]`) | ✅ |
-| `/akun/alamat` | Buku alamat (tambah/ubah/hapus/alamat utama, pencarian kecamatan Biteship) | ✅ |
-| `/wishlist` | Wishlist: pindah ke keranjang, preferensi notifikasi diskon/stok | ✅ (pengiriman notifikasi: T4) |
-| `/keranjang` | Keranjang: ubah jumlah, hapus, validasi stok realtime, progres gratis ongkir | ✅ |
-| `/checkout` | Alamat → Pengiriman (ongkir Biteship) → Pembayaran (kupon, metode) → buat pesanan | ✅ |
-| `/pesanan/[orderNumber]?token=` | Status pesanan, bayar via Midtrans, cek status, batalkan, lacak resi, "pesanan diterima", tulis ulasan + foto (maks. 3) | ✅ |
+| `/` | Home: promo banners, categories, flash sale + countdown, newest, best sellers, testimonials | ✅ |
+| `/produk` | All products + search (`?q=`), filters, sorting, pagination | ✅ |
+| `/kategori/[slug]` | Products per category (same filters & sorting) | ✅ |
+| `/produk/[slug]` | Product detail: gallery (swipe, zoom), color variants, stock, specifications, reviews, related products, JSON-LD | ✅ |
+| `/promo` | Active coupons, flash sales, discounted products | ✅ |
+| `/info/[slug]` | tentang-kami (about us), cara-belanja (how to shop), kebijakan-pengembalian (return policy), syarat-ketentuan (terms), kebijakan-privasi (privacy policy), faq, kontak (contact) | ✅ |
+| `/masuk`, `/daftar` | Sign in & sign up (email/password + Google) | ✅ |
+| `/lupa-password`, `/reset-password` | Password reset via email | ✅ |
+| `/akun` | Account overview | ✅ |
+| `/akun/pesanan` | Order history (details at `/pesanan/[orderNumber]`) | ✅ |
+| `/akun/alamat` | Address book (add/edit/delete/default address, Biteship district search) | ✅ |
+| `/wishlist` | Wishlist: move to cart, discount/stock notification preferences | ✅ (notification delivery: P4) |
+| `/keranjang` | Cart: change quantity, remove, real-time stock validation, free-shipping progress | ✅ |
+| `/checkout` | Address → Shipping (Biteship rates) → Payment (coupon, method) → place order | ✅ |
+| `/pesanan/[orderNumber]?token=` | Order status, pay via Midtrans, check status, cancel, track waybill, "order received", write a review + photos (max. 3) | ✅ |
 
-### Parameter filter `/produk`
-`q` · `kategori=a,b` · `min` · `max` · `warna=Hitam,Krem` · `ukuran=MINI,SMALL,MEDIUM,LARGE` · `bahan=kulit-sintetis,kulit-asli,kanvas,satin,nilon` · `rating=4` · `diskon=1` · `sort=terbaru|terlaris|termurah|termahal|rating` · `page`
+### `/produk` filter parameters
+`q` · `kategori=a,b` (categories) · `min` · `max` · `warna=Hitam,Krem` (colors) · `ukuran=MINI,SMALL,MEDIUM,LARGE` (sizes) · `bahan=kulit-sintetis,kulit-asli,kanvas,satin,nilon` (materials) · `rating=4` · `diskon=1` (discounted) · `sort=terbaru|terlaris|termurah|termahal|rating` (newest, best selling, cheapest, most expensive, rating) · `page`
 
 ## API
-| Route | Fungsi | Status |
+| Route | Purpose | Status |
 |---|---|---|
-| `/api/auth/*` | Better Auth (login, daftar, Google OAuth, reset password, sesi) | ✅ |
-| `/api/search?q=` | Autocomplete pencarian | ✅ |
-| Server Actions `findAreas`, `getShippingOptions` | Cari wilayah & hitung ongkir (Biteship) | ✅ |
-| `/api/me/wishlist` | ID produk di wishlist user (status tombol hati) | ✅ |
-| `/api/webhooks/midtrans` | Notifikasi Midtrans: verifikasi signature → cek ulang status ke API → cocokkan nominal → update status | ✅ |
-| `/api/cron/expire-orders` | Batalkan pesanan kedaluwarsa, kembalikan stok & kuota kupon (header `Authorization: Bearer CRON_SECRET`) | ✅ |
+| `/api/auth/*` | Better Auth (sign in, sign up, Google OAuth, password reset, session) | ✅ |
+| `/api/search?q=` | Search autocomplete | ✅ |
+| Server Actions `findAreas`, `getShippingOptions` | Area lookup & shipping rate calculation (Biteship) | ✅ |
+| `/api/me/wishlist` | Product IDs in the user's wishlist (heart button state) | ✅ |
+| `/api/webhooks/midtrans` | Midtrans notifications: verify signature → re-check status via API → match amount → update status | ✅ |
+| `/api/cron/expire-orders` | Cancel expired orders, restore stock & coupon quota (header `Authorization: Bearer CRON_SECRET`) | ✅ |
 
 ## SEO
-`/sitemap.xml` ✅ · `/robots.txt` ✅ · metadata & Open Graph per produk/kategori ✅ · schema.org `Product` + `AggregateRating` + `Review` ✅
+`/sitemap.xml` ✅ · `/robots.txt` ✅ · metadata & Open Graph per product/category ✅ · schema.org `Product` + `AggregateRating` + `Review` ✅
 
-## Dashboard admin ✅
-Akses dicek di server untuk setiap halaman **dan** setiap Server Action/endpoint (peran dibaca dari database, bukan cache sesi).
+## Admin dashboard ✅
+Access is checked on the server for every page **and** every Server Action/endpoint (the role is read from the database, not the session cache).
 
-| Route | Isi | Peran |
+| Route | Contents | Roles |
 |---|---|---|
-| `/admin` | Penjualan hari ini/7/30 hari, grafik pendapatan, pesanan per status, terlaris, stok menipis, pesanan terbaru | Semua staf (angka penjualan hanya Owner/Admin) |
-| `/admin/produk`, `/admin/produk/baru`, `/admin/produk/[id]` | Tambah/ubah/hapus produk, multi foto (seret-lepas, urutkan, foto utama, foto per warna), varian + SKU + stok, harga coret, SEO, tampil/sembunyi | Owner, Admin |
-| `/admin/stok` | Penyesuaian stok (barang masuk/retur/penyesuaian), stok menipis/habis, riwayat, import/export CSV | Semua staf (Staf: kolom stok saja saat import) |
-| `/admin/pesanan`, `/admin/pesanan/[id]` | Filter status/tanggal/pencarian, proses → kirim (resi) → selesai, catatan internal, riwayat | Semua staf (batalkan: Owner/Admin) |
-| `/admin/pesanan/[id]/invoice`, `/label` | Invoice A4 & label kirim 10×15 cm — cetak / simpan PDF | Semua staf |
-| `/admin/pelanggan` | Pelanggan, jumlah pesanan, total belanja | Owner, Admin |
-| `/admin/promo` | Kupon (persen/nominal/gratis ongkir, min. belanja, kuota, periode), flash sale (harga & kuota per produk), banner terjadwal | Owner, Admin |
-| `/admin/ulasan` | Setujui / sembunyikan / balas; rating produk dihitung ulang otomatis | Owner, Admin |
-| `/admin/laporan` | Periode bebas, per hari/bulan, per kategori, per produk; export CSV (Excel) & cetak PDF | Owner, Admin |
-| `/admin/pengaturan` | Info toko, WhatsApp, alamat asal kirim, kurir aktif, gratis ongkir, metode & batas bayar, media sosial, editor halaman kebijakan, tim admin | Owner |
-| `/api/admin/upload` | Upload lokal → WebP (hanya pengembangan, tanpa Cloudinary) | Owner, Admin |
-| `/api/reviews/upload?item=` | Upload lokal foto ulasan → WebP (hanya pengembangan); hanya pemilik item pesanan selesai yang belum diulas | Pembeli |
-| `/api/admin/products.csv`, `/api/admin/report.csv` | Export CSV | Staf+ / Owner, Admin |
+| `/admin` | Sales today/7/30 days, revenue chart, orders by status, best sellers, low stock, latest orders | All staff (sales figures Owner/Admin only) |
+| `/admin/produk`, `/admin/produk/baru`, `/admin/produk/[id]` | Create/edit/delete products, multiple photos (drag & drop, reorder, primary photo, photos per color), variants + SKU + stock, compare-at price, SEO, visible/hidden | Owner, Admin |
+| `/admin/stok` | Stock adjustments (incoming/returns/adjustments), low/out of stock, history, CSV import/export | All staff (Staff: stock column only on import) |
+| `/admin/pesanan`, `/admin/pesanan/[id]` | Filter by status/date/search, process → ship (waybill) → complete, internal notes, history | All staff (cancel: Owner/Admin) |
+| `/admin/pesanan/[id]/invoice`, `/label` | A4 invoice & 10×15 cm shipping label — print / save as PDF | All staff |
+| `/admin/pelanggan` | Customers, order count, total spend | Owner, Admin |
+| `/admin/promo` | Coupons (percentage/fixed/free shipping, min. spend, quota, period), flash sales (price & quota per product), scheduled banners | Owner, Admin |
+| `/admin/ulasan` | Approve / hide / reply; product ratings are recalculated automatically | Owner, Admin |
+| `/admin/laporan` | Custom period, per day/month, per category, per product; CSV (Excel) export & PDF print | Owner, Admin |
+| `/admin/pengaturan` | Store info, WhatsApp, origin address, active couriers, free shipping, payment methods & deadline, social media, policy page editor, admin team | Owner |
+| `/api/admin/upload` | Local upload → WebP (development only, without Cloudinary) | Owner, Admin |
+| `/api/reviews/upload?item=` | Local review photo upload → WebP (development only); only the owner of a completed, not-yet-reviewed order item | Buyer |
+| `/api/admin/products.csv`, `/api/admin/report.csv` | CSV export | Staff+ / Owner, Admin |
 
 ## Server Actions (`src/actions/`)
-| File | Fungsi |
+| File | Functions |
 |---|---|
-| `cart.ts` | `addToCart`, `updateCartItem`, `removeCartItem` — validasi stok di server |
+| `cart.ts` | `addToCart`, `updateCartItem`, `removeCartItem` — server-side stock validation |
 | `wishlist.ts` | `toggleWishlist`, `moveWishlistToCart`, `setWishlistNotify` |
 | `address.ts` | `saveAddress`, `deleteAddress`, `setDefaultAddress` |
 | `checkout.ts` | `findAreas`, `getShippingOptions`, `previewTotals`, `placeOrder` |
-| `admin/*.ts` | products, stock (adjust & import CSV), orders, promo, reviews, settings, upload — semua lewat `adminAction(perm, …)` |
-| `order.ts` | `startPayment` (Snap), `syncPayment`, `cancelMyOrder`, `confirmReceived`, `submitReview` (+ foto), `getReviewUploadTarget`, `simulatePayment` (hanya lokal) |
+| `admin/*.ts` | products, stock (adjust & CSV import), orders, promo, reviews, settings, upload — all through `adminAction(perm, …)` |
+| `order.ts` | `startPayment` (Snap), `syncPayment`, `cancelMyOrder`, `confirmReceived`, `submitReview` (+ photos), `getReviewUploadTarget`, `simulatePayment` (local only) |
 
-`placeOrder` menghitung ulang semua harga, ongkir (memanggil ulang Biteship), dan kupon di server; memotong stok secara atomik (`stock >= qty`) dalam satu transaksi bersama kuota kupon, pembuatan pesanan, dan pengosongan keranjang.
+`placeOrder` recalculates all prices, shipping (calling Biteship again), and coupons on the server; it deducts stock atomically (`stock >= qty`) in a single transaction together with the coupon quota, order creation, and emptying the cart.
 
-## Siklus status pesanan
+## Order status lifecycle
 ```
-PENDING_PAYMENT ──bayar (webhook/cek status)──▶ PAID ──admin──▶ PROCESSING ──input resi──▶ SHIPPED ──pembeli/admin──▶ COMPLETED
+PENDING_PAYMENT ──paid (webhook/status check)──▶ PAID ──admin──▶ PROCESSING ──waybill entered──▶ SHIPPED ──buyer/admin──▶ COMPLETED
        │
-       └─ batas waktu habis (cron / dibuka) · dibatalkan pembeli · Midtrans "expire"/"cancel" ──▶ CANCELLED (stok & kupon dikembalikan)
+       └─ deadline passed (cron / page opened) · cancelled by buyer · Midtrans "expire"/"cancel" ──▶ CANCELLED (stock & coupon restored)
 ```
-Pembayaran yang masuk setelah pesanan dibatalkan dicatat di riwayat dan admin diberi tahu via WhatsApp (proses ulang atau refund manual).
+Payments that arrive after an order has been cancelled are recorded in the history and the admin is notified via WhatsApp (reprocess or refund manually).

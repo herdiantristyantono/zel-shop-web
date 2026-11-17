@@ -1,79 +1,79 @@
-# Zel Shop — Toko Online Dompet & Tas Wanita
+# Zel Shop — Women's Wallets & Bags Online Store
 
 Next.js 16 (App Router, Cache Components) · TypeScript · Tailwind CSS 4 · PostgreSQL + Prisma 7 · Better Auth
 
-| Dokumen | Isi |
+| Document | Contents |
 |---|---|
-| [docs/DATABASE.md](docs/DATABASE.md) | Rancangan tabel & relasi (ERD) |
-| [docs/ROUTES.md](docs/ROUTES.md) | Daftar halaman, API, dan status per tahap |
-| [.env.example](.env.example) | Semua variabel lingkungan & cara mendapatkannya |
+| [docs/DATABASE.md](docs/DATABASE.md) | Table design & relations (ERD) |
+| [docs/ROUTES.md](docs/ROUTES.md) | List of pages, APIs, and status per phase |
+| [.env.example](.env.example) | All environment variables & how to obtain them |
 
-## Status pengerjaan
+## Progress
 
-- [x] **Tahap 1 — Fondasi:** skema database lengkap, auth (email/password, Google, reset password, rate limit), katalog (beranda, kategori, pencarian + autocomplete, filter, sortir, detail produk, promo, halaman info), SEO, data contoh 14 produk
-- [x] **Tahap 2 — Keranjang & checkout:** keranjang (tamu + digabung saat login, validasi stok realtime), wishlist, buku alamat, checkout 3 langkah dengan ongkir **Biteship**, kupon & gratis ongkir, pemotongan stok atomik, halaman status pesanan (juga untuk tamu), riwayat pesanan, email konfirmasi
-- [x] **Tahap 3 — Pembayaran & pengiriman:** **Midtrans** Snap + webhook terverifikasi, batas waktu bayar & pembatalan otomatis (stok & kupon kembali), lacak resi Biteship, "pesanan diterima", ulasan pembeli terverifikasi, notifikasi email + WhatsApp (Fonnte)
-- [x] **Tahap 4 — Dashboard admin:** peran Owner/Admin/Staf Gudang, ringkasan & grafik, produk + multi foto (Cloudinary) + varian/SKU, stok + riwayat + import/export CSV, pesanan (resi, catatan, invoice & label cetak/PDF), pelanggan, promo (kupon, flash sale, banner), moderasi ulasan, laporan (CSV/PDF), pengaturan toko & tim, notifikasi wishlist, GA4 & Meta Pixel dengan persetujuan cookie
-- [x] **Penyempurnaan:** foto pada ulasan pembeli (maks. 3, ikut dimoderasi admin), audit Lighthouse mobile
+- [x] **Phase 1 — Foundation:** complete database schema, auth (email/password, Google, password reset, rate limiting), catalog (home, categories, search + autocomplete, filters, sorting, product detail, promo, info pages), SEO, sample data with 14 products
+- [x] **Phase 2 — Cart & checkout:** cart (guest + merged on login, real-time stock validation), wishlist, address book, 3-step checkout with **Biteship** shipping rates, coupons & free shipping, atomic stock deduction, order status page (also for guests), order history, confirmation email
+- [x] **Phase 3 — Payment & shipping:** **Midtrans** Snap + verified webhook, payment deadline & automatic cancellation (stock & coupon restored), Biteship waybill tracking, "order received", verified buyer reviews, email + WhatsApp (Fonnte) notifications
+- [x] **Phase 4 — Admin dashboard:** Owner/Admin/Warehouse Staff roles, overview & charts, products + multiple photos (Cloudinary) + variants/SKUs, stock + history + CSV import/export, orders (waybill, notes, printable/PDF invoice & label), customers, promos (coupons, flash sales, banners), review moderation, reports (CSV/PDF), store & team settings, wishlist notifications, GA4 & Meta Pixel with cookie consent
+- [x] **Refinements:** photos on buyer reviews (max. 3, moderated by admin), mobile Lighthouse audit
 
-**Lighthouse (mobile, build produksi lokal, 8 Nov 2026)** — Performa / Aksesibilitas / Best practices / SEO:
+**Lighthouse (mobile, local production build, 8 Nov 2026)** — Performance / Accessibility / Best practices / SEO:
 
-| Halaman | Skor |
+| Page | Score |
 |---|---|
-| Beranda `/` | 93 / 100 / 100 / 100 |
-| Semua produk `/produk` | 95 / 100 / 100 / 100 |
-| Detail produk | 100 / 100 / 100 / 100 |
-| Kategori | 96 / 100 / 100 / 100 |
+| Home `/` | 93 / 100 / 100 / 100 |
+| All products `/produk` | 95 / 100 / 100 / 100 |
+| Product detail | 100 / 100 / 100 / 100 |
+| Category | 96 / 100 / 100 / 100 |
 | Promo | 100 / 100 / 100 / 100 |
 
-Keranjang, checkout, akun, dan admin sengaja `noindex` (skor SEO rendah di sana memang disengaja). Skor di produksi bergantung pada foto asli — unggah lewat Cloudinary agar otomatis dikompres ke WebP/AVIF.
+Cart, checkout, account, and admin pages are intentionally `noindex` (low SEO scores there are expected). Production scores depend on the real photos — upload them via Cloudinary so they are automatically compressed to WebP/AVIF.
 
-## Struktur folder
+## Folder structure
 
 ```
 prisma/
-  schema.prisma          # skema database (semua tahap)
-  migrations/            # riwayat migrasi SQL
-  seed.ts                # isi data contoh
-  seed-data.ts           # 7 kategori, 14 produk, varian, testimoni
-  seed-pages.ts          # konten halaman kebijakan/FAQ
+  schema.prisma          # database schema (all phases)
+  migrations/            # SQL migration history
+  seed.ts                # sample data seeding
+  seed-data.ts           # 7 categories, 14 products, variants, testimonials
+  seed-pages.ts          # policy/FAQ page content
 scripts/
-  generate-product-images.ts   # ilustrasi SVG placeholder foto produk
-public/images/           # gambar placeholder (produk, kategori, banner)
+  generate-product-images.ts   # SVG placeholder illustrations for product photos
+public/images/           # placeholder images (products, categories, banners)
 src/
   app/
-    (shop)/              # semua halaman toko (header + footer)
-      page.tsx           # beranda
-      produk/            # daftar & detail produk
+    (shop)/              # all storefront pages (header + footer)
+      page.tsx           # home
+      produk/            # product list & detail
       kategori/[slug]/
       promo/  info/[slug]/
       masuk/  daftar/  lupa-password/  reset-password/
       keranjang/  checkout/  pesanan/[orderNumber]/  wishlist/
       akun/  akun/alamat/  akun/pesanan/
-    api/auth/[...all]/   # endpoint Better Auth
+    api/auth/[...all]/   # Better Auth endpoint
     api/search/          # autocomplete
     api/webhooks/midtrans/  api/cron/expire-orders/  api/admin/ (upload, CSV)
-    admin/               # dashboard admin (layout sendiri, cek peran)
+    admin/               # admin dashboard (own layout, role check)
     sitemap.ts  robots.ts  layout.tsx  globals.css
   actions/               # Server Actions: cart, wishlist, address, checkout, order
     admin/               # products, stock, orders, promo, reviews, settings, upload
-  components/            # UI toko (Header, ProductCard, galeri, filter, checkout, …)
-    admin/               # UI admin (tabel, grafik, form produk, editor promo, …)
+  components/            # storefront UI (Header, ProductCard, gallery, filters, checkout, …)
+    admin/               # admin UI (tables, charts, product form, promo editor, …)
   lib/
     prisma.ts            # Prisma client
-    auth.ts              # konfigurasi Better Auth (server)
-    auth-client.ts       # hook auth (client)
-    catalog.ts           # query katalog + cache
+    auth.ts              # Better Auth configuration (server)
+    auth-client.ts       # auth hooks (client)
+    catalog.ts           # catalog queries + cache
     cart.ts  pricing.ts  coupon.ts  shipping.ts (Biteship)  orders.ts  settings.ts  validation.ts
-    midtrans.ts  payments.ts  order-service.ts (transisi status)  notify.ts  whatsapp.ts
-    admin.ts (peran & izin)  admin-stats.ts  upload.ts  csv.ts  wishlist-notify.ts
+    midtrans.ts  payments.ts  order-service.ts (status transitions)  notify.ts  whatsapp.ts
+    admin.ts (roles & permissions)  admin-stats.ts  upload.ts  csv.ts  wishlist-notify.ts
     email.ts  format.ts  site.ts
-  generated/prisma/      # hasil `prisma generate` (tidak di-commit)
+  generated/prisma/      # `prisma generate` output (not committed)
 ```
 
-## Menjalankan di komputer lokal
+## Running locally
 
-Prasyarat: **Node.js 20+** (disarankan 22 LTS).
+Prerequisite: **Node.js 20+** (22 LTS recommended).
 
 ```bash
 npm install
@@ -83,13 +83,13 @@ npm install
 cp .env.example .env
 ```
 
-Jalankan database Postgres lokal (tanpa Docker — memakai Prisma Postgres lokal). Biarkan terminal ini tetap terbuka, lalu salin URL `postgres://…` yang muncul ke `DATABASE_URL` di `.env` (biarkan `DATABASE_POOL_MAX=1`):
+Start a local Postgres database (no Docker — uses local Prisma Postgres). Keep this terminal open, then copy the `postgres://…` URL it prints into `DATABASE_URL` in `.env` (keep `DATABASE_POOL_MAX=1`):
 
 ```bash
 npm run db:local
 ```
 
-Di terminal lain, buat tabel dan isi data contoh:
+In another terminal, create the tables and seed sample data:
 
 ```bash
 npm run db:migrate
@@ -103,112 +103,112 @@ npm run db:seed
 npm run dev
 ```
 
-Buka http://localhost:3000.
+Open http://localhost:3000.
 
-**Akun owner contoh:** `owner@zelshop.test` / `ZelShop#2026` (atur lewat `SEED_OWNER_EMAIL` dan `SEED_OWNER_PASSWORD`). Ganti kata sandi sebelum produksi.
+**Sample owner account:** `owner@zelshop.test` / `ZelShop#2026` (configure via `SEED_OWNER_EMAIL` and `SEED_OWNER_PASSWORD`). Change the password before going to production.
 
-> Saat `RESEND_API_KEY` kosong, email (mis. tautan reset kata sandi) dicetak di terminal `npm run dev`.
+> When `RESEND_API_KEY` is empty, emails (e.g. password reset links) are printed in the `npm run dev` terminal.
 
-Perintah lain: `npm run db:studio` (lihat isi database), `npm run typecheck`, `npm run lint`, `npm run images:generate`.
+Other commands: `npm run db:studio` (browse the database), `npm run typecheck`, `npm run lint`, `npm run images:generate`.
 
-## Konfigurasi layanan
+## Service configuration
 
 ### Google Login
-1. [console.cloud.google.com](https://console.cloud.google.com) → buat project → **APIs & Services → OAuth consent screen** (External, isi nama toko & logo).
+1. [console.cloud.google.com](https://console.cloud.google.com) → create a project → **APIs & Services → OAuth consent screen** (External, fill in the store name & logo).
 2. **Credentials → Create credentials → OAuth client ID → Web application**.
-3. Authorized redirect URI: `http://localhost:3000/api/auth/callback/google` dan `https://domainanda.com/api/auth/callback/google`.
-4. Isi `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET`. Tombol Google muncul otomatis.
+3. Authorized redirect URIs: `http://localhost:3000/api/auth/callback/google` and `https://yourdomain.com/api/auth/callback/google`.
+4. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. The Google button appears automatically.
 
-### Ongkir (Biteship)
-Tanpa `BITESHIP_API_KEY`, checkout memakai daftar wilayah & tarif **contoh** (ditandai "Mode contoh" di halaman checkout) — cukup untuk mencoba alur lokal.
-1. Daftar di [biteship.com](https://biteship.com), buka **Dashboard → Integrasi/API** dan salin API key (mulai dengan key *testing*).
-2. Isi `BITESHIP_API_KEY`.
-3. Cari ID area alamat gudang (asal kirim) lalu isi `BITESHIP_ORIGIN_AREA_ID`:
+### Shipping rates (Biteship)
+Without `BITESHIP_API_KEY`, checkout uses a **sample** list of areas & rates (marked "Mode contoh" on the checkout page) — enough to try the flow locally.
+1. Sign up at [biteship.com](https://biteship.com), open **Dashboard → Integration/API** and copy the API key (start with the *testing* key).
+2. Set `BITESHIP_API_KEY`.
+3. Look up the area ID of the warehouse (origin) address and set `BITESHIP_ORIGIN_AREA_ID`:
 
 ```bash
 curl -H "Authorization: $BITESHIP_API_KEY" "https://api.biteship.com/v1/maps/areas?countries=ID&type=single&input=40111"
 ```
 
-4. Kurir aktif, alamat asal kirim, dan gratis ongkir diatur di **Admin → Pengaturan**.
+4. Active couriers, origin address, and free shipping are configured in **Admin → Settings**.
 
-### Pembayaran (Midtrans)
-Tanpa `MIDTRANS_SERVER_KEY`, halaman pesanan menampilkan tombol **"Simulasikan pembayaran berhasil"** (hanya di lokal) untuk menguji alur.
-1. Daftar di [midtrans.com](https://midtrans.com). Mulai dari **Sandbox**: [dashboard.sandbox.midtrans.com](https://dashboard.sandbox.midtrans.com) → **Settings → Access Keys** → isi `MIDTRANS_SERVER_KEY` & `MIDTRANS_CLIENT_KEY`, `MIDTRANS_IS_PRODUCTION="false"`.
+### Payment (Midtrans)
+Without `MIDTRANS_SERVER_KEY`, the order page shows a **"Simulasikan pembayaran berhasil"** (simulate successful payment) button (local only) to test the flow.
+1. Sign up at [midtrans.com](https://midtrans.com). Start with **Sandbox**: [dashboard.sandbox.midtrans.com](https://dashboard.sandbox.midtrans.com) → **Settings → Access Keys** → set `MIDTRANS_SERVER_KEY` & `MIDTRANS_CLIENT_KEY`, `MIDTRANS_IS_PRODUCTION="false"`.
 2. **Settings → Configuration**:
-   - *Payment Notification URL*: `https://domainanda.com/api/webhooks/midtrans`
-   - *Finish/Unfinish/Error Redirect URL*: `https://domainanda.com/akun/pesanan` (pembeli juga otomatis diarahkan kembali ke halaman pesanannya)
-3. Aktifkan metode pembayaran (QRIS, VA, GoPay, ShopeePay, kartu kredit) di **Settings → Payment**. Metode yang ditawarkan di checkout diatur di `StoreSettings.paymentMethods`.
-4. Uji webhook di lokal dengan tunnel, mis. `ngrok http 3000`, lalu pakai URL ngrok sebagai Notification URL sandbox. Simulator pembayaran sandbox: [simulator.sandbox.midtrans.com](https://simulator.sandbox.midtrans.com).
-5. Setelah verifikasi akun & go-live: ganti ke kunci produksi dan `MIDTRANS_IS_PRODUCTION="true"`.
+   - *Payment Notification URL*: `https://yourdomain.com/api/webhooks/midtrans`
+   - *Finish/Unfinish/Error Redirect URL*: `https://yourdomain.com/akun/pesanan` (buyers are also automatically redirected back to their order page)
+3. Enable payment methods (QRIS, VA, GoPay, ShopeePay, credit card) in **Settings → Payment**. The methods offered at checkout are configured in `StoreSettings.paymentMethods`.
+4. Test the webhook locally with a tunnel, e.g. `ngrok http 3000`, then use the ngrok URL as the sandbox Notification URL. Sandbox payment simulator: [simulator.sandbox.midtrans.com](https://simulator.sandbox.midtrans.com).
+5. After account verification & go-live: switch to the production keys and `MIDTRANS_IS_PRODUCTION="true"`.
 
-**Keamanan webhook:** signature SHA512 diverifikasi (constant-time), status diambil ulang dari API Midtrans, nominal dicocokkan dengan total pesanan, dan perubahan status idempoten (notifikasi ganda aman).
+**Webhook security:** the SHA512 signature is verified (constant-time), the status is re-fetched from the Midtrans API, the amount is matched against the order total, and status changes are idempotent (duplicate notifications are safe).
 
-### Pembatalan otomatis (cron)
-`vercel.json` menjadwalkan `/api/cron/expire-orders` tiap 15 menit — isi `CRON_SECRET` di Vercel. **Catatan:** paket Vercel Hobby hanya mengizinkan cron 1×/hari; pada paket Hobby gunakan layanan gratis seperti [cron-job.org](https://cron-job.org) untuk memanggil URL tersebut tiap 15 menit dengan header `Authorization: Bearer <CRON_SECRET>`. Pesanan kedaluwarsa juga dibatalkan saat halamannya dibuka.
+### Automatic cancellation (cron)
+`vercel.json` schedules `/api/cron/expire-orders` once a day (`0 17 * * *` = 00:00 WIB) — set `CRON_SECRET` in Vercel. **Note:** the Vercel Hobby plan only allows cron jobs once per day; for more frequent cancellation, use a free service such as [cron-job.org](https://cron-job.org) to call that URL every 15 minutes with the header `Authorization: Bearer <CRON_SECRET>`. Expired orders are also cancelled when their page is opened.
 
 ### WhatsApp (Fonnte)
-Daftar di [fonnte.com](https://fonnte.com), hubungkan nomor WhatsApp toko (scan QR), salin token device ke `WHATSAPP_API_TOKEN`. Pesan otomatis: pesanan dibuat, pembayaran diterima, dibatalkan, dan dikirim (dengan resi). Admin menerima notifikasi pesanan dibayar di nomor `StoreSettings.whatsappNumber`. Gateway lain bisa dipakai dengan menyesuaikan `src/lib/whatsapp.ts`.
+Sign up at [fonnte.com](https://fonnte.com), connect the store's WhatsApp number (scan the QR code), and copy the device token into `WHATSAPP_API_TOKEN`. Automatic messages: order created, payment received, cancelled, and shipped (with waybill). The admin receives paid-order notifications at the `StoreSettings.whatsappNumber` number. Other gateways can be used by adapting `src/lib/whatsapp.ts`.
 
 ### Email (Resend)
-1. Daftar di [resend.com](https://resend.com), **Domains → Add domain**, tambahkan record DNS (SPF/DKIM) di pengelola domain.
-2. Buat API key → isi `RESEND_API_KEY`, set `EMAIL_FROM="Zel Shop <no-reply@domainanda.com>"`.
+1. Sign up at [resend.com](https://resend.com), **Domains → Add domain**, and add the DNS records (SPF/DKIM) at your domain registrar.
+2. Create an API key → set `RESEND_API_KEY`, and set `EMAIL_FROM="Zel Shop <no-reply@yourdomain.com>"`.
 
-### Database produksi (Supabase)
-1. Buat project di [supabase.com](https://supabase.com) (region **Singapore** paling dekat ke Indonesia).
+### Production database (Supabase)
+1. Create a project at [supabase.com](https://supabase.com) (the **Singapore** region is closest to Indonesia).
 2. **Project Settings → Database → Connection string**:
-   - Untuk aplikasi (Vercel): *Transaction pooler* (port 6543) → `DATABASE_URL`. Set `DATABASE_POOL_MAX=5`.
-   - Untuk migrasi dari komputer Anda: *Session/Direct* (port 5432).
-3. Jalankan migrasi & seed ke Supabase (sekali, dari komputer Anda), dengan `DATABASE_URL` diarahkan ke koneksi direct. **Untuk toko sungguhan set `SEED_DEMO=false`** agar tidak ada produk, ulasan, atau pesanan contoh (ulasan palsu melanggar aturan konsumen & kebijakan Google):
+   - For the app (Vercel): *Transaction pooler* (port 6543) → `DATABASE_URL`. Set `DATABASE_POOL_MAX=5`.
+   - For migrations from your computer: *Session/Direct* (port 5432).
+3. Run migrations & seed against Supabase (once, from your computer), with `DATABASE_URL` pointing to the direct connection. **For a real store set `SEED_DEMO=false`** so no sample products, reviews, or orders are created (fake reviews violate consumer protection rules & Google policies):
 
 ```bash
 npx prisma migrate deploy
 ```
 
 ```bash
-SEED_DEMO=false SEED_OWNER_EMAIL=emailanda@domain.com SEED_OWNER_PASSWORD='kata-sandi-kuat' npm run db:seed
+SEED_DEMO=false SEED_OWNER_EMAIL=you@yourdomain.com SEED_OWNER_PASSWORD='a-strong-password' npm run db:seed
 ```
 
-## Deploy ke Vercel dengan domain sendiri
+## Deploying to Vercel with a custom domain
 
-1. Push repo ke GitHub, lalu di [vercel.com](https://vercel.com) → **Add New → Project** → import repo.
-2. **Environment Variables:** isi semua variabel dari `.env.example` (gunakan nilai produksi). Penting:
-   - `NEXT_PUBLIC_SITE_URL` dan `BETTER_AUTH_URL` = `https://domainanda.com`
-   - `BETTER_AUTH_SECRET` = hasil `openssl rand -base64 32`
-3. Deploy. Build menjalankan `prisma generate && next build` dan membaca database untuk pra-render halaman, jadi pastikan `DATABASE_URL` sudah benar.
-4. **Domain:** Project → **Settings → Domains → Add** `domainanda.com` dan `www.domainanda.com`. Di pengelola domain (Niagahoster, Rumahweb, Cloudflare, dll.) tambahkan:
+1. Push the repo to GitHub, then on [vercel.com](https://vercel.com) → **Add New → Project** → import the repo.
+2. **Environment Variables:** set every variable from `.env.example` (use production values). Important:
+   - `NEXT_PUBLIC_SITE_URL` and `BETTER_AUTH_URL` = `https://yourdomain.com`
+   - `BETTER_AUTH_SECRET` = output of `openssl rand -base64 32`
+3. Deploy. The build runs `prisma generate && next build` and reads the database to pre-render pages, so make sure `DATABASE_URL` is correct.
+4. **Domain:** Project → **Settings → Domains → Add** `yourdomain.com` and `www.yourdomain.com`. At your domain registrar (Niagahoster, Rumahweb, Cloudflare, etc.) add:
    - `A` record `@` → `76.76.21.21`
    - `CNAME` record `www` → `cname.vercel-dns.com`
-   SSL/HTTPS dibuat otomatis oleh Vercel dalam beberapa menit.
-5. Daftarkan sitemap di Google Search Console: `https://domainanda.com/sitemap.xml`.
+   SSL/HTTPS is provisioned automatically by Vercel within a few minutes.
+5. Submit the sitemap in Google Search Console: `https://yourdomain.com/sitemap.xml`.
 
-### Alternatif: VPS (Ubuntu)
-Instal Node 22 + PostgreSQL (atau pakai Supabase), lalu `npm ci && npx prisma migrate deploy && npm run build`, jalankan `npm start` dengan **PM2**, pasang **Nginx** sebagai reverse proxy ke port 3000, dan **Certbot** (`certbot --nginx -d domainanda.com`) untuk SSL gratis.
+### Alternative: VPS (Ubuntu)
+Install Node 22 + PostgreSQL (or use Supabase), then `npm ci && npx prisma migrate deploy && npm run build`, run `npm start` with **PM2**, set up **Nginx** as a reverse proxy to port 3000, and **Certbot** (`certbot --nginx -d yourdomain.com`) for free SSL.
 
-## Dashboard admin
+## Admin dashboard
 
-Buka `/admin` dan masuk dengan akun owner. Tambahkan anggota tim di **Pengaturan → Tim admin** (mereka harus mendaftar akun dulu di `/daftar`).
+Open `/admin` and sign in with the owner account. Add team members under **Settings → Admin team** (they must first register an account at `/daftar`).
 
-| Peran | Akses |
+| Role | Access |
 |---|---|
-| **Owner** | Semua, termasuk pengaturan toko & tim |
-| **Admin** | Semua kecuali pengaturan |
-| **Staf Gudang** | Pesanan (proses, resi, cetak label/invoice, catatan) dan stok; tanpa angka penjualan |
+| **Owner** | Everything, including store & team settings |
+| **Admin** | Everything except settings |
+| **Warehouse Staff** | Orders (process, waybill, print label/invoice, notes) and stock; no sales figures |
 
-Alur harian: **Pesanan → filter "Dibayar"** → *Proses pesanan* → cetak **label** → input **nomor resi** (pembeli otomatis diberi tahu via email & WhatsApp) → selesai otomatis saat pembeli menekan "diterima", atau tandai manual.
+Daily workflow: **Orders → filter "Paid"** → *Process order* → print **label** → enter the **waybill number** (the buyer is automatically notified via email & WhatsApp) → completed automatically when the buyer taps "received", or mark it manually.
 
-### Foto produk (Cloudinary)
-1. Daftar gratis di [cloudinary.com](https://cloudinary.com) → **Dashboard** → salin *Cloud name*, *API Key*, *API Secret* ke `CLOUDINARY_*`.
-2. Foto diunggah langsung dari browser ke Cloudinary dengan tanda tangan server (file tidak melewati server Anda), disimpan maks. 2000 px, dan ditampilkan dengan `f_auto,q_auto` → **WebP/AVIF otomatis** sesuai browser.
-3. Tanpa Cloudinary (hanya lokal), foto dikompres ke WebP 1600 px dan disimpan di `public/uploads/` (tidak di-commit).
+### Product photos (Cloudinary)
+1. Sign up for free at [cloudinary.com](https://cloudinary.com) → **Dashboard** → copy the *Cloud name*, *API Key*, and *API Secret* into `CLOUDINARY_*`.
+2. Photos are uploaded directly from the browser to Cloudinary with a server signature (files never pass through your server), stored at max. 2000 px, and served with `f_auto,q_auto` → **automatic WebP/AVIF** depending on the browser.
+3. Without Cloudinary (local only), photos are compressed to 1600 px WebP and stored in `public/uploads/` (not committed).
 
-### Import/export produk (Excel)
-**Stok → Export CSV** menghasilkan file per varian (pemisah `;`, langsung terbaca Excel berbahasa Indonesia). Ubah kolom `stock`, `price`, `compare_at_price`, `variant_price`, atau `published` (1/0), simpan sebagai CSV, lalu **Import CSV**. Baris dicocokkan lewat `sku`; setiap perubahan stok tercatat di riwayat. Produk baru dibuat lewat form (agar foto & deskripsi lengkap).
+### Product import/export (Excel)
+**Stock → Export CSV** produces one row per variant (`;` separator, opens directly in Indonesian-locale Excel). Edit the `stock`, `price`, `compare_at_price`, `variant_price`, or `published` (1/0) columns, save as CSV, then **Import CSV**. Rows are matched by `sku`; every stock change is recorded in the history. New products are created through the form (so photos & descriptions are complete).
 
-### Analitik (GA4 & Meta Pixel)
-Isi `NEXT_PUBLIC_GA_ID` dan/atau `NEXT_PUBLIC_META_PIXEL_ID`. Pengunjung melihat pemberitahuan cookie; skrip baru dimuat setelah mereka menekan **Setuju** (sesuai UU PDP). Event yang dikirim: `PageView`, `add_to_cart`/`AddToCart`, `begin_checkout`/`InitiateCheckout`, dan `purchase`/`Purchase` (saat pesanan sudah dibayar).
+### Analytics (GA4 & Meta Pixel)
+Set `NEXT_PUBLIC_GA_ID` and/or `NEXT_PUBLIC_META_PIXEL_ID`. Visitors see a cookie notice; scripts are only loaded after they click **Accept** (in line with Indonesia's Personal Data Protection Law). Events sent: `PageView`, `add_to_cart`/`AddToCart`, `begin_checkout`/`InitiateCheckout`, and `purchase`/`Purchase` (once the order is paid).
 
-## Catatan teknis
-- **Cache:** data katalog di-cache dengan `"use cache"` + `cacheTag`; dashboard admin memanggil `updateTag(...)` setelah mengubah data sehingga perubahan langsung tampil di toko.
-- **Keamanan:** password di-hash (scrypt) oleh Better Auth; cookie sesi httpOnly + Secure di produksi; proteksi CSRF bawaan Better Auth (cek Origin); rate limit login 5×/menit, daftar 5×/menit, reset 3×/5 menit; semua parameter URL divalidasi di server; React meng-escape output (JSON-LD di-escape manual); redirect setelah login hanya ke path internal.
-- **Gambar produk:** data contoh memakai ilustrasi SVG di `public/images`; ganti dengan foto asli lewat **Admin → Produk** (Cloudinary).
-- **Notifikasi wishlist:** saat harga produk turun / harga coret dipasang, atau stok kembali dari 0, pengguna yang menyimpan produk itu menerima email (+WhatsApp jika ada nomor), maks. 1× per 24 jam per produk.
+## Technical notes
+- **Cache:** catalog data is cached with `"use cache"` + `cacheTag`; the admin dashboard calls `updateTag(...)` after mutating data so changes show up in the store immediately.
+- **Security:** passwords are hashed (scrypt) by Better Auth; session cookies are httpOnly + Secure in production; built-in Better Auth CSRF protection (Origin check); rate limits: login 5×/minute, sign-up 5×/minute, reset 3×/5 minutes; all URL parameters are validated on the server; React escapes output (JSON-LD is escaped manually); post-login redirects only go to internal paths.
+- **Product images:** sample data uses SVG illustrations in `public/images`; replace them with real photos via **Admin → Products** (Cloudinary).
+- **Wishlist notifications:** when a product's price drops / a compare-at price is set, or stock comes back from 0, users who saved that product receive an email (+ WhatsApp if they have a number), at most once per 24 hours per product.
