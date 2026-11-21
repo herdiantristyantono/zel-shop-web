@@ -119,6 +119,18 @@ Other commands: `npm run db:studio` (browse the database), `npm run typecheck`, 
 3. Authorized redirect URIs: `http://localhost:3000/api/auth/callback/google` and `https://yourdomain.com/api/auth/callback/google`.
 4. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. The Google button appears automatically.
 
+### Checkout mode (WhatsApp orders)
+The checkout flow is controlled by the `CHECKOUT_MODE` environment variable, so you can switch flows without code changes (set it in Vercel, then redeploy).
+
+| `CHECKOUT_MODE` | Flow |
+|---|---|
+| `whatsapp` | **Phase 1.** Checkout has two steps (address → confirmation). The buyer types the full address in one field. There is no courier choice and no online payment. After placing the order, the buyer taps **Konfirmasi via WhatsApp** to send the order details to the store's WhatsApp number (Admin → Settings). The admin agrees on shipping cost and payment, then opens the order in **Admin → Orders** and fills in **Konfirmasi sudah dibayar** (shipping cost, courier, payment method). From there the flow is the usual process → ship (waybill) → complete. These orders have no payment deadline and are never auto-cancelled. |
+| empty / unset | **Final flow.** Biteship shipping rates and Midtrans online payment, with automatic status updates. |
+
+Orders keep working after the flag changes: an order created in WhatsApp mode still shows the WhatsApp button to the buyer and the manual payment form to the admin, even after you switch to the final flow.
+
+Locally, add `CHECKOUT_MODE="whatsapp"` to `.env.local` and restart `npm run dev`.
+
 ### Shipping rates (Biteship)
 Without `BITESHIP_API_KEY`, checkout uses a **sample** list of areas & rates (marked "Mode contoh" on the checkout page) — enough to try the flow locally.
 1. Sign up at [biteship.com](https://biteship.com), open **Dashboard → Integration/API** and copy the API key (start with the *testing* key).
