@@ -14,7 +14,14 @@ export type SettingsValue = {
   instagramUrl: string; tiktokUrl: string; shopeeUrl: string; tokopediaUrl: string;
 };
 
-export function StoreSettingsForm({ initial, couriers, payments }: { initial: SettingsValue; couriers: Opt[]; payments: Opt[] }) {
+/** Penjelasan pengganti pengaturan yang tidak dipakai di mode checkout WhatsApp. */
+function ModeNote({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-xl border border-plum/30 bg-blush/40 p-3 text-sm text-ink">{children}</div>;
+}
+
+/** whatsappMode (CHECKOUT_MODE=whatsapp): pengaturan ongkir Biteship & pembayaran online disembunyikan —
+ *  nilainya tetap tersimpan dan aktif lagi saat kembali ke flow final. */
+export function StoreSettingsForm({ initial, couriers, payments, whatsappMode = false }: { initial: SettingsValue; couriers: Opt[]; payments: Opt[]; whatsappMode?: boolean }) {
   const [v, setV] = useState(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -52,37 +59,57 @@ export function StoreSettingsForm({ initial, couriers, payments }: { initial: Se
 
       <section className="rounded-2xl border border-line bg-white p-5">
         <h2 className="mb-4 font-sans text-base font-semibold">Pengiriman</h2>
-        <p className="mb-2 text-sm text-muted">Alamat asal kirim (gudang) — dipakai menghitung ongkir Biteship.</p>
-        <AreaSearch value={area} onSelect={(a) => setV({ ...v, originAreaId: a.id, originCity: a.city, originPostalCode: a.postalCode, originLabel: a.label })} />
-        <fieldset className="mt-5">
-          <legend className="label">Kurir aktif</legend>
-          {errors.activeCouriers && <p className="text-xs text-danger">{errors.activeCouriers}</p>}
-          <div className="flex flex-wrap gap-x-5">
-            {couriers.map((c) => (
-              <label key={c.value} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-plum" checked={v.activeCouriers.includes(c.value)} onChange={() => toggle("activeCouriers", c.value)} />{c.label}</label>
-            ))}
-          </div>
-        </fieldset>
+        {whatsappMode ? (
+          <ModeNote>
+            <strong>Mode pesanan via WhatsApp aktif.</strong> Ongkir dan kurir disepakati dengan pembeli lewat WhatsApp, lalu dicatat saat Anda menekan{" "}
+            <em>Konfirmasi sudah dibayar</em> di halaman pesanan. Alamat asal (Biteship) dan kurir aktif tidak dipakai sekarang. Pengaturan tersimpan dan aktif lagi saat
+            beralih ke pembayaran online.
+          </ModeNote>
+        ) : (
+          <>
+          <p className="mb-2 text-sm text-muted">Alamat asal kirim (gudang) — dipakai menghitung ongkir Biteship.</p>
+          <AreaSearch value={area} onSelect={(a) => setV({ ...v, originAreaId: a.id, originCity: a.city, originPostalCode: a.postalCode, originLabel: a.label })} />
+          <fieldset className="mt-5">
+            <legend className="label">Kurir aktif</legend>
+            {errors.activeCouriers && <p className="text-xs text-danger">{errors.activeCouriers}</p>}
+            <div className="flex flex-wrap gap-x-5">
+              {couriers.map((c) => (
+                <label key={c.value} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-plum" checked={v.activeCouriers.includes(c.value)} onChange={() => toggle("activeCouriers", c.value)} />{c.label}</label>
+              ))}
+            </div>
+          </fieldset>
+          </>
+        )}
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Gratis ongkir untuk belanja ≥ (Rp)" htmlFor="s-freeShippingMin" hint="Kosong = tidak ada"><input className="input" inputMode="numeric" {...t("freeShippingMin")} /></Field>
+          <Field label="Gratis ongkir untuk belanja ≥ (Rp)" htmlFor="s-freeShippingMin" hint={whatsappMode ? "Tidak dihitung otomatis: untuk pesanan yang memenuhi, kurangi ongkir saat konfirmasi pembayaran" : "Kosong = tidak ada"}><input className="input" inputMode="numeric" {...t("freeShippingMin")} /></Field>
           <Field label="Maks. subsidi ongkir (Rp)" htmlFor="s-freeShippingMax" hint="Kosong = ongkir penuh ditanggung"><input className="input" inputMode="numeric" {...t("freeShippingMax")} /></Field>
         </div>
       </section>
 
       <section className="rounded-2xl border border-line bg-white p-5">
         <h2 className="mb-4 font-sans text-base font-semibold">Pembayaran</h2>
-        <fieldset>
-          <legend className="label">Metode yang ditawarkan di checkout</legend>
-          {errors.paymentMethods && <p className="text-xs text-danger">{errors.paymentMethods}</p>}
-          <div className="flex flex-wrap gap-x-5">
-            {payments.map((p) => (
-              <label key={p.value} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-plum" checked={v.paymentMethods.includes(p.value)} onChange={() => toggle("paymentMethods", p.value)} />{p.label}</label>
-            ))}
+        {whatsappMode ? (
+          <ModeNote>
+            <strong>Pembayaran manual.</strong> Setelah pembeli mengonfirmasi pesanan via WhatsApp, Anda mengirim ongkir dan cara bayar (transfer bank, QRIS, e-wallet,
+            COD, atau tunai). Begitu dana diterima, tandai pesanan dibayar di halaman pesanan. Pesanan tidak dibatalkan otomatis. Metode pembayaran online dan batas
+            waktu bayar aktif lagi saat beralih ke pembayaran online.
+          </ModeNote>
+        ) : (
+          <>
+          <fieldset>
+            <legend className="label">Metode yang ditawarkan di checkout</legend>
+            {errors.paymentMethods && <p className="text-xs text-danger">{errors.paymentMethods}</p>}
+            <div className="flex flex-wrap gap-x-5">
+              {payments.map((p) => (
+                <label key={p.value} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-plum" checked={v.paymentMethods.includes(p.value)} onChange={() => toggle("paymentMethods", p.value)} />{p.label}</label>
+              ))}
+            </div>
+          </fieldset>
+          <div className="mt-4 max-w-xs">
+            <Field label="Batas waktu bayar (menit)" htmlFor="s-paymentTimeoutMins" error={errors.paymentTimeoutMins} hint="1440 = 24 jam"><input className="input" inputMode="numeric" {...t("paymentTimeoutMins")} /></Field>
           </div>
-        </fieldset>
-        <div className="mt-4 max-w-xs">
-          <Field label="Batas waktu bayar (menit)" htmlFor="s-paymentTimeoutMins" error={errors.paymentTimeoutMins} hint="1440 = 24 jam"><input className="input" inputMode="numeric" {...t("paymentTimeoutMins")} /></Field>
-        </div>
+          </>
+        )}
       </section>
 
       <section className="rounded-2xl border border-line bg-white p-5">

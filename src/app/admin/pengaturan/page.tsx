@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { PageEditor, StoreSettingsForm, TeamManager } from "@/components/admin/SettingsForms";
 import { Card, PageHeader, Skeleton } from "@/components/admin/ui";
 import { requireStaff } from "@/lib/admin";
+import { isWhatsAppCheckout } from "@/lib/checkout-mode";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings, PAYMENT_METHODS } from "@/lib/settings";
 import { COURIER_NAMES } from "@/lib/shipping";
@@ -31,6 +32,7 @@ async function Settings() {
   return (
     <div className="grid gap-8 xl:grid-cols-[1fr_420px]">
       <StoreSettingsForm
+        whatsappMode={isWhatsAppCheckout()}
         couriers={Object.entries(COURIER_NAMES).map(([value, label]) => ({ value, label }))}
         payments={Object.entries(PAYMENT_METHODS).map(([value, m]) => ({ value, label: m.label }))}
         initial={{
