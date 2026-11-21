@@ -50,7 +50,17 @@ export async function notifyOrderCreated(o: OrderLike) {
   // Email rincian dikirim dari placeOrder (berisi daftar barang).
 }
 
-export async function notifyOrderPaid(o: OrderLike) {
+/** Mode checkout WhatsApp: belum ada ongkir & pembayaran — admin yang menindaklanjuti. */
+export async function notifyOrderCreatedManual(o: OrderLike) {
+  const link = orderLink(o);
+  await sendWhatsApp(
+    o.phone,
+    `Halo ${o.customerName}, terima kasih telah berbelanja di Zel Shop 💜\n\nPesanan *${o.orderNumber}* (${rupiah(o.total)}, belum termasuk ongkir) sudah kami terima. Admin akan segera menghubungi Anda untuk konfirmasi ongkir & pembayaran.\n\nStatus pesanan: ${link}`,
+  );
+  await notifyAdmin(`🛍️ Pesanan baru menunggu konfirmasi: ${o.orderNumber}\n${o.customerName} · ${o.phone}\n${rupiah(o.total)} (belum termasuk ongkir)\nHubungi pembeli untuk ongkir & pembayaran, lalu konfirmasi di dashboard.`);
+}
+
+export async function notifyOrderPaid(o: OrderLike, opts: { notifyAdmin?: boolean } = {}) {
   const link = orderLink(o);
   await both(
     o,
@@ -58,7 +68,7 @@ export async function notifyOrderPaid(o: OrderLike) {
     `<p>Halo ${esc(o.customerName)},</p><p>Pembayaran <strong>${rupiah(o.total)}</strong> untuk pesanan <strong>${o.orderNumber}</strong> sudah kami terima. Pesanan Anda segera kami kemas dan kirim.</p>${button(link, "Lihat pesanan")}`,
     `Halo ${o.customerName}, pembayaran pesanan *${o.orderNumber}* (${rupiah(o.total)}) sudah kami terima ✅\nPesanan segera kami kemas & kirim.\n\nStatus: ${link}`,
   );
-  await notifyAdmin(`🛍️ Pesanan baru DIBAYAR: ${o.orderNumber}\n${o.customerName} · ${rupiah(o.total)}\nSegera proses di dashboard.`);
+  if (opts.notifyAdmin !== false) await notifyAdmin(`🛍️ Pesanan baru DIBAYAR: ${o.orderNumber}\n${o.customerName} · ${rupiah(o.total)}\nSegera proses di dashboard.`);
 }
 
 export async function notifyOrderCancelled(o: OrderLike) {

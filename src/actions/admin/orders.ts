@@ -4,10 +4,35 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { adminAction } from "@/lib/admin";
 import { expireTransaction } from "@/lib/midtrans";
-import { adminCompleteOrder, cancelPaidOrder, cancelPendingOrder, shipOrder, startProcessing } from "@/lib/order-service";
+import { MANUAL_PAYMENT_METHODS } from "@/lib/manual-payment";
+import { adminCompleteOrder, cancelPaidOrder, cancelPendingOrder, confirmManualPayment, shipOrder, startProcessing } from "@/lib/order-service";
 import { prisma } from "@/lib/prisma";
+import { COURIER_NAMES } from "@/lib/shipping";
 
 const id = z.string().min(1).max(40);
+
+const manualPaymentSchema = z.object({
+  shippingCost: z.coerce.number({ message: "Isi ongkir" }).int("Ongkir harus angka bulat").min(0, "Ongkir tidak boleh negatif").max(10_000_000),
+  courierCode: z.string().trim().min(2, "Pilih atau isi nama kurir").max(30),
+  courierService: z.string().trim().max(40).default(""),
+  method: z.enum(MANUAL_PAYMENT_METHODS, { message: "Pilih metode pembayaran" }),
+});
+
+/** Admin menandai pesanan sudah dibayar (pembayaran manual via WhatsApp/transfer) + mencatat ongkir & kurir. */
+export async function confirmPayment(orderId: string, input: z.input<typeof manualPaymentSchema>) {
+  return adminAction("orders", async (user) => {
+    const p = manualPaymentSchema.safeParse(input);
+    if (!id.safeParse(orderId).success) return { ok: false, error: "Data tidak valid." };
+    if (!p.success) return { ok: false, error: p.error.issues[0].message };
+    // Kode kurir yang dikenal (jne, jnt, …) disimpan huruf kecil; kurir lain disimpan apa adanya (mis. "Lion Parcel").
+    const code = p.data.courierCode.toLowerCase() in COURIER_NAMES ? p.data.courierCode.toLowerCase() : p.data.courierCode;
+    const r = await confirmManualPayment(orderId, { ...p.data, courierCode: code }, user.id);
+    refresh();
+    if (r === "PAID") return { ok: true, message: "Pembayaran dikonfirmasi. Pembeli sudah diberi tahu." };
+    if (r === "AMOUNT_MISMATCH") return { ok: false, error: "Total berubah saat diproses. Muat ulang halaman lalu coba lagi." };
+    return { ok: false, error: "Pesanan tidak lagi menunggu pembayaran." };
+  });
+}
 
 export async function processOrder(orderId: string) {
   return adminAction("orders", async (user) => {

@@ -6,7 +6,7 @@ import { NoteForm, OrderActions } from "@/components/admin/OrderActions";
 import { Badge, Card, dateTime, ORDER_TONE, PageHeader, Skeleton } from "@/components/admin/ui";
 import { ProductImage } from "@/components/ProductImage";
 import { can, requireStaff } from "@/lib/admin";
-import { rupiah } from "@/lib/format";
+import { formatAddress, rupiah } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/orders";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHODS } from "@/lib/settings";
@@ -41,6 +41,8 @@ async function OrderAdmin({ params }: { params: Promise<{ id: string }> }) {
   const actors = actorIds.length ? await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true } }) : [];
   const actorName = (aid: string | null) => (aid ? (actors.find((a) => a.id === aid)?.name ?? "Staf") : "Sistem");
   const payment = order.payments[0];
+  // Pesanan mode WhatsApp: tanpa batas bayar & ongkir belum ditentukan → admin mengonfirmasi manual.
+  const manualPending = order.status === "PENDING_PAYMENT" && !order.paymentExpiresAt;
 
   return (
     <>
@@ -74,7 +76,7 @@ async function OrderAdmin({ params }: { params: Promise<{ id: string }> }) {
             <dl className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
               <div className="flex justify-between"><dt>Subtotal</dt><dd className="tabular-nums">{rupiah(order.subtotal)}</dd></div>
               {order.discount > 0 && <div className="flex justify-between"><dt>Diskon {order.couponCode}</dt><dd className="tabular-nums">−{rupiah(order.discount)}</dd></div>}
-              <div className="flex justify-between"><dt>Ongkir ({order.totalWeightGram} g)</dt><dd className="tabular-nums">{rupiah(order.shippingCost)}</dd></div>
+              <div className="flex justify-between"><dt>Ongkir ({order.totalWeightGram} g)</dt><dd className="tabular-nums">{manualPending ? <span className="text-muted">belum dikonfirmasi</span> : rupiah(order.shippingCost)}</dd></div>
               {order.shippingDiscount > 0 && <div className="flex justify-between"><dt>Potongan ongkir</dt><dd className="tabular-nums">−{rupiah(order.shippingDiscount)}</dd></div>}
               <div className="flex justify-between border-t border-line pt-2 text-base font-semibold"><dt>Total</dt><dd className="tabular-nums">{rupiah(order.total)}</dd></div>
             </dl>
@@ -90,7 +92,7 @@ async function OrderAdmin({ params }: { params: Promise<{ id: string }> }) {
             </Card>
             <Card title="Pengiriman">
               <p className="text-sm text-ink">{order.recipientName} · {order.phone}</p>
-              <p className="mt-1 text-sm text-muted">{order.street}, {order.district}, {order.city}, {order.province} {order.postalCode}</p>
+              <p className="mt-1 whitespace-pre-line text-sm text-muted">{formatAddress(order)}</p>
               <p className="mt-3 text-sm">{COURIER_NAMES[order.courierCode] ?? order.courierCode} {order.courierService}{order.courierEtd && <span className="text-muted"> · {order.courierEtd}</span>}</p>
               {order.trackingNumber && <p className="mt-1 text-sm">Resi <span className="font-mono font-semibold">{order.trackingNumber}</span></p>}
             </Card>
@@ -106,7 +108,13 @@ async function OrderAdmin({ params }: { params: Promise<{ id: string }> }) {
         </div>
         <div className="space-y-6">
           <Card title="Tindakan">
-            <OrderActions orderId={order.id} status={order.status} trackingNumber={order.trackingNumber} canCancel={can(user.role, "orders.cancel")} />
+            <OrderActions
+              orderId={order.id}
+              status={order.status}
+              trackingNumber={order.trackingNumber}
+              canCancel={can(user.role, "orders.cancel")}
+              manual={manualPending ? { amountBeforeShipping: order.subtotal - order.discount, couriers: Object.entries(COURIER_NAMES).map(([value, label]) => ({ value, label })) } : null}
+            />
           </Card>
           <Card title="Catatan internal">
             <NoteForm orderId={order.id} />

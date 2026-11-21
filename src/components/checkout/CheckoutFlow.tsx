@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { getShippingOptions, placeOrder, previewTotals } from "@/actions/checkout";
 import type { CartLine } from "@/lib/cart";
 import type { Totals } from "@/lib/coupon";
-import { rupiah } from "@/lib/format";
+import { formatAddress, rupiah } from "@/lib/format";
 import { track } from "../Analytics";
 import type { Rate } from "@/lib/shipping";
 import { AddressFields, draftToInput, emptyAddress, type AddressDraft } from "../account/AddressFields";
@@ -20,11 +20,13 @@ type Props = {
   addresses: SavedAddress[];
   paymentMethods: { value: string; label: string; hint: string }[];
   mockShipping: boolean;
+  /** CHECKOUT_MODE=whatsapp: tanpa pilihan kurir & pembayaran — admin menindaklanjuti via WhatsApp. */
+  whatsappMode?: boolean;
 };
 
-const STEPS = ["Alamat", "Pengiriman", "Pembayaran"];
-
-export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods, mockShipping }: Props) {
+export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods, mockShipping, whatsappMode = false }: Props) {
+  // Mode WhatsApp hanya 2 langkah: Alamat → Konfirmasi (langkah internal 0 → 2)
+  const STEPS = whatsappMode ? ["Alamat", "Konfirmasi"] : ["Alamat", "Pengiriman", "Pembayaran"];
   const router = useRouter();
   const [step, setStep] = useState(0);
   const topRef = useRef<HTMLDivElement>(null);
@@ -44,7 +46,8 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
   const [error, setError] = useState<string | null>(null);
 
   // Langkah 1
-  const usable = addresses.filter((a) => a.areaId);
+  // Mode WhatsApp: semua alamat tersimpan bisa dipakai (ongkir dihitung admin, kecamatan tidak wajib)
+  const usable = whatsappMode ? addresses : addresses.filter((a) => a.areaId);
   const [addressId, setAddressId] = useState<string>(usable.find((a) => a.isDefault)?.id ?? usable[0]?.id ?? "new");
   const [draft, setDraft] = useState<AddressDraft>(emptyAddress);
   const [saveAddr, setSaveAddr] = useState(true);
@@ -67,8 +70,18 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
     setError(null);
     if (!user && (!/^\S+@\S+\.\S+$/.test(contact.email) || contact.customerName.trim().length < 2)) return setError("Isi nama dan email yang valid.");
     if (addressId === "new") {
-      if (!draft.area) return setError("Pilih kecamatan dari daftar.");
-      if (draft.recipientName.trim().length < 2 || draft.phone.trim().length < 9 || draft.street.trim().length < 8) return setError("Lengkapi nama penerima, nomor HP, dan alamat lengkap.");
+      if (!whatsappMode && !draft.area) return setError("Pilih kecamatan dari daftar.");
+      if (draft.recipientName.trim().length < 2 || draft.phone.trim().length < 9) return setError("Lengkapi nama penerima dan nomor HP.");
+      if (whatsappMode && draft.street.trim().length < 20) return setError("Tulis alamat lengkap: jalan, nomor, RT/RW, kelurahan, kecamatan, kota, dan kode pos.");
+      if (!whatsappMode && draft.street.trim().length < 8) return setError("Lengkapi alamat lengkap.");
+    }
+    if (whatsappMode) {
+      if (addressId !== "new" && !saved) return setError("Pilih alamat pengiriman.");
+      start(async () => {
+        setTotals(await previewTotals({ shippingCost: 0, couponCode: coupon, email }));
+        setStep(2);
+      });
+      return;
     }
     if (!dest?.id) return setError("Pilih alamat pengiriman.");
     start(async () => {
@@ -99,16 +112,21 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
 
   function submit() {
     setError(null);
-    if (!rate || !payment) return;
+    if (!whatsappMode && (!rate || !payment)) return;
     start(async () => {
       const res = await placeOrder({
         contact: user ? undefined : contact,
         addressId: addressId !== "new" ? addressId : undefined,
-        address: addressId === "new" ? withoutLabel(draftToInput(draft)) : undefined,
-        saveAddress: Boolean(user) && addressId === "new" && saveAddr,
-        courierCode: rate.courierCode,
-        serviceCode: rate.serviceCode,
-        paymentMethod: payment,
+        address:
+          addressId !== "new"
+            ? undefined
+            : whatsappMode
+              ? { recipientName: draft.recipientName, phone: draft.phone, street: draft.street }
+              : withoutLabel(draftToInput(draft)),
+        saveAddress: Boolean(user) && addressId === "new" && saveAddr && !whatsappMode,
+        courierCode: whatsappMode ? undefined : rate?.courierCode,
+        serviceCode: whatsappMode ? undefined : rate?.serviceCode,
+        paymentMethod: whatsappMode ? undefined : payment,
         couponCode: coupon || undefined,
         note: note || undefined,
       });
@@ -118,15 +136,16 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
   }
 
   const shippingNet = rate ? rate.price - (totals?.shippingDiscount ?? 0) : null;
+  const shownStep = whatsappMode && step === 2 ? 1 : step;
 
   return (
     <div className="grid gap-10 lg:grid-cols-[1fr_380px]">
       <div ref={topRef} className="min-w-0 scroll-mt-32">
         <ol className="mb-8 flex items-center gap-2 text-sm" aria-label="Langkah checkout">
           {STEPS.map((s, i) => (
-            <li key={s} className="flex items-center gap-2" aria-current={i === step ? "step" : undefined}>
-              <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${i <= step ? "bg-plum text-white" : "bg-blush text-muted"}`}>{i + 1}</span>
-              <span className={i === step ? "font-medium text-ink" : "hidden text-muted sm:inline"}>{s}</span>
+            <li key={s} className="flex items-center gap-2" aria-current={i === shownStep ? "step" : undefined}>
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${i <= shownStep ? "bg-plum text-white" : "bg-blush text-muted"}`}>{i + 1}</span>
+              <span className={i === shownStep ? "font-medium text-ink" : "hidden text-muted sm:inline"}>{s}</span>
               {i < STEPS.length - 1 && <span className="mx-1 h-px w-4 bg-line sm:w-10" aria-hidden />}
             </li>
           ))}
@@ -165,7 +184,7 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
                       <input type="radio" name="addr" className="mt-1 h-5 w-5 accent-plum" checked={addressId === a.id} onChange={() => setAddressId(a.id)} />
                       <span className="text-sm">
                         <span className="font-medium text-ink">{a.label} · {a.recipientName}</span> <span className="text-muted">({a.phone})</span>
-                        <span className="mt-1 block text-muted">{a.street}, {a.district}, {a.city}, {a.province} {a.postalCode}</span>
+                        <span className="mt-1 block text-muted">{formatAddress(a)}</span>
                       </span>
                     </label>
                   ))}
@@ -177,8 +196,8 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
               )}
               {addressId === "new" && (
                 <div className="mt-4">
-                  <AddressFields value={draft} onChange={setDraft} showLabel={false} />
-                  {user && (
+                  <AddressFields value={draft} onChange={setDraft} showLabel={false} freeText={whatsappMode} />
+                  {user && !whatsappMode && (
                     <label className="mt-3 flex min-h-11 items-center gap-3 text-sm">
                       <input type="checkbox" className="h-5 w-5 accent-plum" checked={saveAddr} onChange={(e) => setSaveAddr(e.target.checked)} /> Simpan ke buku alamat
                     </label>
@@ -187,7 +206,7 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
               )}
             </div>
             <button type="button" disabled={pending} onClick={goShipping} className="btn-primary h-12 w-full sm:w-auto">
-              {pending ? "Menghitung ongkir…" : "Lanjut ke pengiriman"}
+              {pending ? (whatsappMode ? "Memuat…" : "Menghitung ongkir…") : whatsappMode ? "Lanjut ke konfirmasi" : "Lanjut ke pengiriman"}
             </button>
           </section>
         )}
@@ -224,6 +243,15 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
 
         {step === 2 && (
           <section aria-labelledby="s3" className="space-y-6">
+            {whatsappMode ? (
+              <div className="rounded-2xl border border-plum/40 bg-white p-5">
+                <h2 id="s3" className="text-2xl">Konfirmasi pesanan</h2>
+                <p className="mt-2 text-sm text-muted">
+                  Setelah pesanan dibuat, kirim konfirmasi ke admin kami via WhatsApp. Admin akan menginformasikan <strong className="text-ink">ongkir</strong> dan{" "}
+                  <strong className="text-ink">cara pembayaran</strong>, lalu memproses pengiriman.
+                </p>
+              </div>
+            ) : (
             <div className="rounded-2xl border border-line bg-white p-5">
               <h2 id="s3" className="text-2xl">Metode pembayaran</h2>
               <fieldset className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -239,6 +267,7 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
                 ))}
               </fieldset>
             </div>
+            )}
             <div className="rounded-2xl border border-line bg-white p-5">
               <label className="label" htmlFor="coupon">Kode kupon</label>
               <div className="flex gap-2">
@@ -255,8 +284,8 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
               <textarea id="note" className="input min-h-20 py-3" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} placeholder="mis. tolong bungkus kado" />
             </div>
             <div className="flex flex-wrap gap-3">
-              <button type="button" onClick={() => setStep(1)} className="btn-outline h-12">Kembali</button>
-              <button type="button" disabled={pending || !payment} onClick={submit} className="btn-primary h-12 flex-1 sm:flex-none">
+              <button type="button" onClick={() => setStep(whatsappMode ? 0 : 1)} className="btn-outline h-12">Kembali</button>
+              <button type="button" disabled={pending || (!whatsappMode && !payment)} onClick={submit} className="btn-primary h-12 flex-1 sm:flex-none">
                 {pending ? "Memproses…" : `Buat pesanan · ${rupiah(totals?.total ?? subtotal)}`}
               </button>
             </div>
@@ -291,11 +320,12 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
           <div className="flex justify-between">
             <dt>Ongkir{rate && ` (${rate.courierName} ${rate.serviceName})`}</dt>
             <dd>
-              {shippingNet == null ? <span className="text-muted">—</span> : shippingNet === 0 ? <span className="font-medium text-success">Gratis</span> : rupiah(shippingNet)}
+              {whatsappMode ? <span className="text-muted">Dikonfirmasi admin</span> : shippingNet == null ? <span className="text-muted">—</span> : shippingNet === 0 ? <span className="font-medium text-success">Gratis</span> : rupiah(shippingNet)}
               {totals && totals.shippingDiscount > 0 && shippingNet !== 0 && rate && <span className="ml-1 text-xs text-muted line-through">{rupiah(rate.price)}</span>}
             </dd>
           </div>
           <div className="flex justify-between border-t border-line pt-3 text-base font-semibold"><dt>Total</dt><dd>{rupiah(totals?.total ?? subtotal + (rate?.price ?? 0))}</dd></div>
+          {whatsappMode && <p className="text-xs text-muted">Belum termasuk ongkir.</p>}
         </dl>
       </aside>
     </div>

@@ -6,7 +6,7 @@ import { LogoMark } from "@/components/Logo";
 import { PrintButton } from "@/components/admin/OrderActions";
 import { dateOnly, Skeleton } from "@/components/admin/ui";
 import { requireStaff } from "@/lib/admin";
-import { rupiah } from "@/lib/format";
+import { formatAddress, rupiah } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/orders";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings, PAYMENT_METHODS } from "@/lib/settings";
@@ -60,7 +60,7 @@ async function Invoice({ params }: { params: Promise<{ id: string }> }) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted">Dikirim ke</p>
             <p className="mt-1 font-medium">{order.recipientName}</p>
-            <p>{order.street}, {order.district}, {order.city}, {order.province} {order.postalCode}</p>
+            <p>{formatAddress(order)}</p>
             <p className="mt-1">{COURIER_NAMES[order.courierCode] ?? order.courierCode} {order.courierService}{order.trackingNumber && ` · Resi ${order.trackingNumber}`}</p>
           </div>
         </section>

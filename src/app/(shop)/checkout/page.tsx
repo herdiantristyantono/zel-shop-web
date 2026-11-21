@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CheckoutFlow } from "@/components/checkout/CheckoutFlow";
 import { getCart, getCartOwner } from "@/lib/cart";
+import { isWhatsAppCheckout } from "@/lib/checkout-mode";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHODS, getStoreSettings } from "@/lib/settings";
 import { isMockShipping } from "@/lib/shipping";
@@ -32,6 +33,7 @@ async function CheckoutLoader() {
       addresses={addresses}
       paymentMethods={settings.paymentMethods.filter((m) => PAYMENT_METHODS[m]).map((m) => ({ value: m, ...PAYMENT_METHODS[m] }))}
       mockShipping={isMockShipping()}
+      whatsappMode={isWhatsAppCheckout()}
     />
   );
 }

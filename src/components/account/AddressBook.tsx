@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { deleteAddress, saveAddress, setDefaultAddress } from "@/actions/address";
+import { formatAddress } from "@/lib/format";
 import { CloseIcon } from "../icons";
 import { AddressFields, draftToInput, emptyAddress, type AddressDraft } from "./AddressFields";
 
@@ -59,7 +60,7 @@ export function AddressBook({ addresses }: { addresses: SavedAddress[] }) {
                 {a.isDefault && <span className="rounded-full bg-plum-soft px-2 py-0.5 text-xs font-medium text-plum">Utama</span>}
               </div>
               <p className="mt-2 text-sm text-ink">{a.recipientName} · {a.phone}</p>
-              <p className="mt-1 text-sm text-muted">{a.street}, {a.district}, {a.city}, {a.province} {a.postalCode}</p>
+              <p className="mt-1 text-sm text-muted">{formatAddress(a)}</p>
               {!a.areaId && <p className="mt-2 text-xs text-danger">Pilih ulang kecamatan agar ongkir bisa dihitung.</p>}
               <div className="mt-3 flex flex-wrap gap-x-4 text-sm">
                 <button type="button" onClick={() => open(a)} className="min-h-11 text-plum underline">Ubah</button>

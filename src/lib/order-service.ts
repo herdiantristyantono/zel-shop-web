@@ -11,7 +11,7 @@ import { prisma } from "./prisma";
  * Setiap transisi dijaga `updateMany where status = ...` agar idempoten & aman dari race condition.
  */
 
-export type PaidInfo = { amount: number; method?: string | null; transactionId?: string | null; raw?: unknown; note?: string };
+export type PaidInfo = { amount: number; method?: string | null; transactionId?: string | null; raw?: unknown; note?: string; provider?: "midtrans" | "manual"; actorId?: string | null };
 
 export async function markOrderPaid(orderNumber: string, info: PaidInfo): Promise<"PAID" | "ALREADY" | "LATE" | "AMOUNT_MISMATCH" | "NOT_FOUND"> {
   const order = await prisma.order.findUnique({ where: { orderNumber }, include: { items: true } });
@@ -31,7 +31,7 @@ export async function markOrderPaid(orderNumber: string, info: PaidInfo): Promis
       }
       return "ALREADY" as const;
     }
-    await tx.orderStatusHistory.create({ data: { orderId: order.id, status: "PAID", note: info.note ?? `Pembayaran diterima${info.method ? ` (${info.method})` : ""}` } });
+    await tx.orderStatusHistory.create({ data: { orderId: order.id, status: "PAID", note: info.note ?? `Pembayaran diterima${info.method ? ` (${info.method})` : ""}`, actorId: info.actorId ?? null } });
     for (const item of order.items) {
       if (!item.productId) continue;
       await tx.product.update({ where: { id: item.productId }, data: { soldCount: { increment: item.quantity } } });
@@ -41,7 +41,8 @@ export async function markOrderPaid(orderNumber: string, info: PaidInfo): Promis
     return "PAID" as const;
   });
 
-  if (result === "PAID") await notifyOrderPaid(order);
+  // Konfirmasi manual oleh admin → admin tidak perlu diberi tahu tentang tindakannya sendiri
+  if (result === "PAID") await notifyOrderPaid(order, { notifyAdmin: info.provider !== "manual" });
   if (result === "LATE") await notifyLatePayment(orderNumber);
   return result;
 }
@@ -50,7 +51,7 @@ async function upsertPayment(tx: Prisma.TransactionClient, orderId: string, orde
   await tx.payment.upsert({
     where: { providerRef: orderNumber },
     update: { status, method: info?.method ?? undefined, raw: (info?.raw as Prisma.InputJsonValue) ?? undefined },
-    create: { orderId, provider: process.env.MIDTRANS_SERVER_KEY ? "midtrans" : "manual", providerRef: orderNumber, amount, status, method: info?.method ?? null, raw: (info?.raw as Prisma.InputJsonValue) ?? undefined },
+    create: { orderId, provider: info?.provider ?? (process.env.MIDTRANS_SERVER_KEY ? "midtrans" : "manual"), providerRef: orderNumber, amount, status, method: info?.method ?? null, raw: (info?.raw as Prisma.InputJsonValue) ?? undefined },
   });
 }
 
@@ -110,6 +111,30 @@ export async function completeOrder(orderId: string, actorId?: string | null) {
 }
 
 // ───────────── Transisi oleh admin ─────────────
+
+export type ManualPayment = { shippingCost: number; courierCode: string; courierService: string; method: string };
+
+/**
+ * PENDING_PAYMENT → PAID oleh admin (pembayaran di luar Midtrans, mis. transfer via WhatsApp).
+ * Ongkir yang disepakati dengan pembeli dicatat dan total dihitung ulang sebelum ditandai dibayar.
+ */
+export async function confirmManualPayment(orderId: string, p: ManualPayment, actorId: string) {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order || order.status !== "PENDING_PAYMENT") return "NOT_PENDING" as const;
+  const total = Math.max(0, order.subtotal - order.discount + p.shippingCost);
+  const moved = await prisma.order.updateMany({
+    where: { id: orderId, status: "PENDING_PAYMENT" },
+    data: { shippingCost: p.shippingCost, shippingDiscount: 0, total, courierCode: p.courierCode, courierService: p.courierService, paymentMethod: p.method },
+  });
+  if (moved.count !== 1) return "NOT_PENDING" as const;
+  return markOrderPaid(order.orderNumber, {
+    amount: total,
+    method: p.method,
+    provider: "manual",
+    actorId,
+    note: `Pembayaran dikonfirmasi admin (${p.method}) · ongkir ${p.shippingCost.toLocaleString("id-ID")}`,
+  });
+}
 
 /** PAID → PROCESSING (sedang dikemas) */
 export async function startProcessing(orderId: string, actorId: string) {

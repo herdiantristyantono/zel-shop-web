@@ -23,3 +23,11 @@ export function slugify(input: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
+
+type AddressParts = { street: string; district?: string | null; city?: string | null; province?: string | null; postalCode?: string | null };
+
+/** "Jl. X, Coblong, Bandung, Jawa Barat 40132" — bagian kosong dilewati (alamat mode WhatsApp hanya berisi `street`). */
+export function formatAddress(a: AddressParts): string {
+  const tail = [a.province, a.postalCode].filter(Boolean).join(" ");
+  return [a.street, a.district, a.city, tail].filter(Boolean).join(", ");
+}

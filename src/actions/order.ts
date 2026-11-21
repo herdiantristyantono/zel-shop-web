@@ -27,7 +27,9 @@ export async function startPayment(input: { orderNumber: string; token?: string 
   const order = await load(input);
   if (!order) return { ok: false, error: "Pesanan tidak ditemukan." };
   if (order.status !== "PENDING_PAYMENT") return { ok: false, error: "Pesanan ini tidak menunggu pembayaran." };
-  if (order.paymentExpiresAt && order.paymentExpiresAt < new Date()) return { ok: false, error: "Batas waktu pembayaran sudah lewat." };
+  // Pesanan mode WhatsApp (tanpa batas bayar): ongkir belum final, pembayaran lewat admin
+  if (!order.paymentExpiresAt) return { ok: false, error: "Pembayaran pesanan ini dikonfirmasi oleh admin via WhatsApp." };
+  if (order.paymentExpiresAt < new Date()) return { ok: false, error: "Batas waktu pembayaran sudah lewat." };
   if (!isMidtransEnabled()) return { ok: false, error: "Pembayaran online belum diaktifkan." };
 
   const existing = await prisma.payment.findUnique({ where: { providerRef: order.orderNumber } });
@@ -93,6 +95,7 @@ export async function simulatePayment(input: { orderNumber: string; token?: stri
   if (isMidtransEnabled() || process.env.NODE_ENV === "production") return { ok: false, error: "Tidak tersedia." };
   const order = await load(input);
   if (!order) return { ok: false, error: "Pesanan tidak ditemukan." };
+  if (!order.paymentExpiresAt) return { ok: false, error: "Pembayaran pesanan ini dikonfirmasi oleh admin." };
   await markOrderPaid(order.orderNumber, { amount: order.total, method: order.paymentMethod, note: "Pembayaran disimulasikan (mode pengembangan)" });
   refresh();
   return { ok: true };

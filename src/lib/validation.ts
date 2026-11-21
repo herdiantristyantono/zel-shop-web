@@ -18,6 +18,11 @@ export const addressSchema = z.object({
 });
 export type AddressInput = z.input<typeof addressSchema>;
 
+/** Mode checkout WhatsApp: tanpa pencarian kecamatan — seluruh alamat ditulis bebas di satu kolom. */
+export const manualAddressSchema = addressSchema.pick({ recipientName: true, phone: true }).extend({
+  street: z.string().trim().min(20, "Tulis alamat lengkap: jalan, nomor, RT/RW, kelurahan, kecamatan, kota, dan kode pos").max(400),
+});
+
 
 export const contactSchema = z.object({
   email: z.string().trim().toLowerCase().email("Email tidak valid").max(120),

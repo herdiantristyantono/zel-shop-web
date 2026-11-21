@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { cancelMyOrder, confirmReceived, simulatePayment, startPayment, syncPayment } from "@/actions/order";
 
-type Props = { orderNumber: string; token: string | null; mode: "midtrans" | "dev" | "manual"; whatsappHref: string };
+type Props = { orderNumber: string; token: string | null; mode: "midtrans" | "dev" | "manual" | "whatsapp"; whatsappHref: string };
 
 export function PaymentPanel({ orderNumber, token, mode, whatsappHref }: Props) {
   const sp = useSearchParams();
@@ -53,6 +53,11 @@ export function PaymentPanel({ orderNumber, token, mode, whatsappHref }: Props) 
         <div className="rounded-xl bg-blush p-4 text-sm text-ink">
           Pembayaran online sedang tidak tersedia. Hubungi admin kami untuk menyelesaikan pembayaran.
           <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="btn-primary mt-3 w-full sm:w-auto">Hubungi via WhatsApp</a>
+        </div>
+      )}
+      {mode === "whatsapp" && (
+        <div>
+          <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="btn-primary h-12 w-full sm:w-auto">Konfirmasi via WhatsApp</a>
         </div>
       )}
       {msg && <p role="status" className={`text-sm ${msg.ok ? "text-plum" : "text-danger"}`}>{msg.text}</p>}

@@ -7,12 +7,15 @@ import { TAGS } from "@/lib/catalog";
 import { computeTotals, type Totals } from "@/lib/coupon";
 import { emailLayout, sendEmail } from "@/lib/email";
 import { rupiah } from "@/lib/format";
-import { notifyOrderCreated } from "@/lib/notify";
+import { isWhatsAppCheckout } from "@/lib/checkout-mode";
+import { notifyOrderCreated, notifyOrderCreatedManual } from "@/lib/notify";
 import { newOrderNumber } from "@/lib/orders";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHODS, getStoreSettings } from "@/lib/settings";
 import { getRates, searchAreas, type Area, type Rate } from "@/lib/shipping";
-import { addressSchema, contactSchema } from "@/lib/validation";
+import { addressSchema, contactSchema, manualAddressSchema } from "@/lib/validation";
+
+type Destination = { recipientName: string; phone: string; street: string; province: string; city: string; district: string; postalCode: string; areaId: string | null };
 import { site } from "@/lib/site";
 
 async function loadCart() {
@@ -63,11 +66,13 @@ export async function previewTotals(input: { shippingCost: number; couponCode?: 
 const orderSchema = z.object({
   contact: contactSchema.optional(), // wajib untuk tamu
   addressId: z.string().max(40).optional(),
-  address: addressSchema.omit({ label: true, isDefault: true }).optional(),
+  // Divalidasi di placeOrder sesuai mode: addressSchema (normal) atau manualAddressSchema (WhatsApp)
+  address: z.unknown().optional(),
   saveAddress: z.boolean().optional(),
-  courierCode: z.string().min(2).max(20),
-  serviceCode: z.string().min(1).max(30),
-  paymentMethod: z.string().refine((m) => m in PAYMENT_METHODS, "Metode pembayaran tidak valid"),
+  // Kosong pada mode WhatsApp (kurir & pembayaran diatur admin)
+  courierCode: z.string().min(2).max(20).optional(),
+  serviceCode: z.string().min(1).max(30).optional(),
+  paymentMethod: z.string().refine((m) => m in PAYMENT_METHODS, "Metode pembayaran tidak valid").optional(),
   couponCode: z.string().max(30).optional(),
   note: z.string().trim().max(300).optional(),
 });
@@ -80,20 +85,34 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   const parsed = orderSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Data checkout tidak valid." };
   const data = parsed.data;
+  const manual = isWhatsAppCheckout();
+  if (!manual && (!data.courierCode || !data.serviceCode)) return { ok: false, error: "Pilih layanan pengiriman." };
+  if (!manual && !data.paymentMethod) return { ok: false, error: "Pilih metode pembayaran." };
 
   const { session } = await getCartOwner();
   const user = session?.user ?? null;
   if (!user && !data.contact) return { ok: false, error: "Isi email dan nama untuk checkout sebagai tamu." };
 
-  // 1. Alamat tujuan (alamat tersimpan milik user, atau alamat baru)
-  let dest: z.infer<typeof addressSchema> | null = null;
+  // 1. Alamat tujuan (alamat tersimpan milik user, atau alamat baru).
+  //    Mode WhatsApp: alamat ditulis bebas di `street` (tanpa kecamatan/area Biteship).
+  let dest: Destination | null = null;
+  let newAddress: z.infer<typeof addressSchema> | null = null;
   if (data.addressId && user) {
     const a = await prisma.address.findFirst({ where: { id: data.addressId, userId: user.id } });
-    if (a?.areaId) dest = { ...a, areaId: a.areaId, isDefault: a.isDefault };
+    if (a && (manual || a.areaId)) dest = a;
   } else if (data.address) {
-    dest = { ...data.address, label: "Rumah" };
+    if (manual) {
+      const m = manualAddressSchema.safeParse(data.address);
+      if (!m.success) return { ok: false, error: m.error.issues[0].message };
+      dest = { ...m.data, province: "", city: "", district: "", postalCode: "", areaId: null };
+    } else {
+      const a = addressSchema.omit({ label: true, isDefault: true }).safeParse(data.address);
+      if (!a.success) return { ok: false, error: a.error.issues[0].message };
+      newAddress = { ...a.data, label: "Rumah" };
+      dest = newAddress;
+    }
   }
-  if (!dest) return { ok: false, error: "Alamat pengiriman belum lengkap." };
+  if (!dest || (!manual && !dest.areaId)) return { ok: false, error: "Alamat pengiriman belum lengkap." };
 
   // 2. Keranjang & validasi stok
   const { lines, cartId } = await loadCart();
@@ -102,14 +121,19 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   if (bad) return { ok: false, error: `Stok "${bad.productName} - ${bad.colorName}" berubah. Periksa keranjang Anda.` };
   const sum = summarize(lines);
 
-  // 3. Ongkir dihitung ulang dari Biteship (harga dari klien tidak dipercaya)
+  // 3. Ongkir dihitung ulang dari Biteship (harga dari klien tidak dipercaya).
+  //    Mode WhatsApp: ongkir 0 dulu, admin mengisinya saat mengonfirmasi pembayaran.
   let rate: Rate | undefined;
-  try {
-    rate = (await getRates(dest.areaId, rateItems(lines))).find((r) => r.courierCode === data.courierCode && r.serviceCode === data.serviceCode);
-  } catch {
-    return { ok: false, error: "Gagal menghitung ongkir. Coba lagi." };
+  if (manual) {
+    rate = { courierCode: "", courierName: "", serviceCode: "", serviceName: "Dikonfirmasi admin", price: 0, etd: "" };
+  } else {
+    try {
+      rate = (await getRates(dest.areaId!, rateItems(lines))).find((r) => r.courierCode === data.courierCode && r.serviceCode === data.serviceCode);
+    } catch {
+      return { ok: false, error: "Gagal menghitung ongkir. Coba lagi." };
+    }
+    if (!rate) return { ok: false, error: "Layanan kurir tidak tersedia lagi. Pilih ulang pengiriman." };
   }
-  if (!rate) return { ok: false, error: "Layanan kurir tidak tersedia lagi. Pilih ulang pengiriman." };
 
   // 4. Total & kupon
   const email = user?.email ?? data.contact!.email;
@@ -118,6 +142,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
 
   const settings = await getStoreSettings();
   const orderNumber = newOrderNumber();
+  // Mode WhatsApp: tanpa batas bayar → tidak dibatalkan otomatis oleh cron; admin yang membatalkan.
+  const paymentExpiresAt = manual ? null : new Date(Date.now() + settings.paymentTimeoutMins * 60_000);
   const accessToken = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
 
   // 5. Transaksi: potong stok secara atomik, kuota kupon, buat pesanan, kosongkan keranjang
@@ -154,7 +180,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
           areaId: dest.areaId,
           courierCode: rate.courierCode,
           courierService: rate.serviceName,
-          courierEtd: rate.etd,
+          courierEtd: rate.etd || null,
           totalWeightGram: sum.weightGram,
           subtotal: totals.subtotal,
           discount: totals.discount,
@@ -163,8 +189,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
           total: totals.total,
           couponId: totals.coupon?.id,
           couponCode: totals.coupon?.code,
-          paymentMethod: data.paymentMethod,
-          paymentExpiresAt: new Date(Date.now() + settings.paymentTimeoutMins * 60_000),
+          paymentMethod: data.paymentMethod ?? null,
+          paymentExpiresAt,
           customerNote: data.note || null,
           items: {
             create: lines.map((l) => ({
@@ -179,13 +205,14 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
               weightGram: l.weightGram,
             })),
           },
-          history: { create: { status: "PENDING_PAYMENT", note: "Pesanan dibuat" } },
+          history: { create: { status: "PENDING_PAYMENT", note: manual ? "Pesanan dibuat — menunggu konfirmasi admin via WhatsApp" : "Pesanan dibuat" } },
         },
       });
       await tx.cartItem.deleteMany({ where: { cartId } });
-      if (user && data.address && data.saveAddress) {
+      // Alamat bebas (mode WhatsApp) tidak disimpan: tanpa kecamatan, tidak bisa dipakai menghitung ongkir nanti
+      if (user && newAddress && data.saveAddress) {
         const count = await tx.address.count({ where: { userId: user.id } });
-        if (count < 10) await tx.address.create({ data: { ...data.address, label: "Rumah", userId: user.id, isDefault: count === 0 } });
+        if (count < 10) await tx.address.create({ data: { ...newAddress, isDefault: count === 0, userId: user.id } });
       }
     });
   } catch (e) {
@@ -197,32 +224,33 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   updateTag(TAGS.products); // stok berubah → halaman produk segar
 
   const link = `${site.url}/pesanan/${orderNumber}?token=${accessToken}`;
+  const customerName = user?.name ?? data.contact!.customerName;
+  const shippingRow = manual
+    ? `<tr><td style="padding-top:12px;border-top:1px solid #eee">Ongkir</td><td align="right" style="padding-top:12px;border-top:1px solid #eee">dikonfirmasi admin</td></tr>`
+    : `<tr><td style="padding-top:12px;border-top:1px solid #eee">Ongkir (${escapeHtml(rate.courierName)} ${escapeHtml(rate.serviceName)})</td><td align="right" style="padding-top:12px;border-top:1px solid #eee">${rupiah(totals.shippingCost - totals.shippingDiscount)}</td></tr>`;
   await sendEmail({
     to: email,
-    subject: `Pesanan ${orderNumber} diterima — menunggu pembayaran`,
-    text: `Terima kasih! Pesanan ${orderNumber} sebesar ${rupiah(totals.total)} menunggu pembayaran. Lihat & bayar: ${link}`,
+    subject: manual ? `Pesanan ${orderNumber} diterima — menunggu konfirmasi admin` : `Pesanan ${orderNumber} diterima — menunggu pembayaran`,
+    text: manual
+      ? `Terima kasih! Pesanan ${orderNumber} (${rupiah(totals.total)} belum termasuk ongkir) sudah kami terima. Admin akan menghubungi Anda via WhatsApp untuk ongkir & pembayaran. Status: ${link}`
+      : `Terima kasih! Pesanan ${orderNumber} sebesar ${rupiah(totals.total)} menunggu pembayaran. Lihat & bayar: ${link}`,
     html: emailLayout(
       `Pesanan ${orderNumber} diterima`,
       `<p>Terima kasih telah berbelanja di Zel Shop.</p>
        <table width="100%" style="font-size:14px;border-collapse:collapse">${lines
          .map((l) => `<tr><td style="padding:6px 0">${escapeHtml(l.productName)} (${escapeHtml(l.colorName)}) × ${l.quantity}</td><td align="right">${rupiah(l.unitPrice * l.quantity)}</td></tr>`)
          .join("")}
-       <tr><td style="padding-top:12px;border-top:1px solid #eee">Ongkir (${escapeHtml(rate.courierName)} ${escapeHtml(rate.serviceName)})</td><td align="right" style="padding-top:12px;border-top:1px solid #eee">${rupiah(totals.shippingCost - totals.shippingDiscount)}</td></tr>
+       ${shippingRow}
        ${totals.discount ? `<tr><td>Diskon</td><td align="right">-${rupiah(totals.discount)}</td></tr>` : ""}
-       <tr><td style="font-weight:bold;padding-top:6px">Total</td><td align="right" style="font-weight:bold">${rupiah(totals.total)}</td></tr></table>
-       <p><a href="${link}" style="display:inline-block;margin-top:16px;background:#5B2A45;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">Lihat pesanan & bayar</a></p>`,
+       <tr><td style="font-weight:bold;padding-top:6px">Total${manual ? " (belum termasuk ongkir)" : ""}</td><td align="right" style="font-weight:bold">${rupiah(totals.total)}</td></tr></table>
+       ${manual ? `<p>Admin kami akan menghubungi Anda via WhatsApp untuk konfirmasi ongkir dan cara pembayaran.</p>` : ""}
+       <p><a href="${link}" style="display:inline-block;margin-top:16px;background:#5B2A45;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">${manual ? "Lihat pesanan" : "Lihat pesanan & bayar"}</a></p>`,
     ),
   });
 
-  await notifyOrderCreated({
-    orderNumber,
-    accessToken,
-    email,
-    customerName: user?.name ?? data.contact!.customerName,
-    phone: dest.phone,
-    total: totals.total,
-    paymentExpiresAt: new Date(Date.now() + settings.paymentTimeoutMins * 60_000),
-  });
+  const notifyData = { orderNumber, accessToken, email, customerName, phone: dest.phone, total: totals.total, paymentExpiresAt };
+  if (manual) await notifyOrderCreatedManual(notifyData);
+  else await notifyOrderCreated(notifyData);
 
   return { ok: true, orderNumber, token: accessToken };
 }

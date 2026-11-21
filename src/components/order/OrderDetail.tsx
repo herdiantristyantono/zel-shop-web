@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import type { getOrderForViewer } from "@/lib/orders";
 import { STATUS_LABEL } from "@/lib/orders";
-import { rupiah } from "@/lib/format";
+import { formatAddress, rupiah } from "@/lib/format";
 import { PAYMENT_METHODS } from "@/lib/settings";
 import { COURIER_NAMES } from "@/lib/shipping";
 import { site, whatsappLink } from "@/lib/site";
@@ -20,9 +20,32 @@ const dt = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "s
 
 export type OrderViewer = { token: string | null; paymentMode: "midtrans" | "dev" | "manual"; canReview: boolean; waNumber: string };
 
+/** Pesan WhatsApp berisi rincian pesanan untuk dikirim pembeli ke admin (mode checkout WhatsApp). */
+function confirmationMessage(order: Order) {
+  const items = order.items.map((i) => `• ${i.productName} (${i.colorName}) × ${i.quantity} = ${rupiah(i.unitPrice * i.quantity)}`).join("\n");
+  return [
+    `Halo ${site.name}, saya mau konfirmasi pesanan *${order.orderNumber}*`,
+    "",
+    items,
+    order.discount > 0 ? `Diskon${order.couponCode ? ` (${order.couponCode})` : ""}: -${rupiah(order.discount)}` : null,
+    `*Total: ${rupiah(order.total)}* (belum termasuk ongkir)`,
+    "",
+    `Kirim ke: ${order.recipientName} · ${order.phone}`,
+    formatAddress(order),
+    order.customerNote ? `Catatan: ${order.customerNote}` : null,
+    "",
+    "Mohon info ongkir & cara pembayarannya. Terima kasih 🙏",
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+}
+
 export function OrderDetail({ order, isNew, viewer }: { order: Order; isNew: boolean; viewer: OrderViewer }) {
   const current = FLOW.indexOf(order.status as (typeof FLOW)[number]);
   const cancelled = order.status === "CANCELLED";
+  // Pesanan mode WhatsApp: belum ada batas bayar → menunggu konfirmasi admin
+  const awaitingAdmin = order.status === "PENDING_PAYMENT" && !order.paymentExpiresAt;
+  const confirmHref = whatsappLink(confirmationMessage(order), viewer.waNumber);
   return (
     <div className="space-y-8">
       {order.paidAt && order.status !== "CANCELLED" && (
@@ -31,7 +54,18 @@ export function OrderDetail({ order, isNew, viewer }: { order: Order; isNew: boo
       {isNew && (
         <div className="rounded-2xl bg-plum p-6 text-white" role="status">
           <p className="font-serif text-3xl">Terima kasih, pesanan diterima!</p>
-          <p className="mt-2 text-sm text-white/90">Detail pesanan juga kami kirim ke <strong>{order.email}</strong> dan WhatsApp {order.phone}. Simpan halaman ini untuk memantau status pesanan.</p>
+          {awaitingAdmin ? (
+            <>
+              <p className="mt-2 text-sm text-white/90">
+                <strong>Satu langkah lagi:</strong> kirim konfirmasi pesanan ke admin via WhatsApp. Admin akan menginformasikan ongkir dan cara pembayaran.
+              </p>
+              <a href={confirmHref} target="_blank" rel="noopener noreferrer" className="btn mt-4 w-full bg-white text-plum hover:bg-white/90 sm:w-auto">
+                Konfirmasi via WhatsApp
+              </a>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-white/90">Detail pesanan juga kami kirim ke <strong>{order.email}</strong> dan WhatsApp {order.phone}. Simpan halaman ini untuk memantau status pesanan.</p>
+          )}
         </div>
       )}
 
@@ -75,6 +109,19 @@ export function OrderDetail({ order, isNew, viewer }: { order: Order; isNew: boo
         </section>
       )}
 
+      {awaitingAdmin && (
+        <section className="rounded-2xl border border-plum/40 bg-white p-5 sm:p-6" aria-labelledby="konfirmasi">
+          <h2 id="konfirmasi" className="text-2xl">Menunggu konfirmasi admin</h2>
+          <p className="mt-1 text-sm text-muted">
+            Total <strong className="text-ink">{rupiah(order.total)}</strong> belum termasuk ongkir. Admin akan menghubungi Anda via WhatsApp untuk ongkir dan cara pembayaran.
+            Belum dihubungi? Kirim konfirmasi lewat tombol di bawah.
+          </p>
+          <Suspense>
+            <PaymentPanel orderNumber={order.orderNumber} token={viewer.token} mode="whatsapp" whatsappHref={confirmHref} />
+          </Suspense>
+        </section>
+      )}
+
       {order.trackingNumber && (order.status === "SHIPPED" || order.status === "COMPLETED") && (
         <section className="rounded-2xl border border-line bg-white p-5 sm:p-6" aria-labelledby="lacak">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -114,7 +161,7 @@ export function OrderDetail({ order, isNew, viewer }: { order: Order; isNew: boo
           <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
             <div className="flex justify-between"><dt>Subtotal</dt><dd>{rupiah(order.subtotal)}</dd></div>
             {order.discount > 0 && <div className="flex justify-between text-plum"><dt>Diskon {order.couponCode && `(${order.couponCode})`}</dt><dd>-{rupiah(order.discount)}</dd></div>}
-            <div className="flex justify-between"><dt>Ongkir</dt><dd>{rupiah(order.shippingCost)}</dd></div>
+            <div className="flex justify-between"><dt>Ongkir</dt><dd>{awaitingAdmin ? <span className="text-muted">Dikonfirmasi admin</span> : rupiah(order.shippingCost)}</dd></div>
             {order.shippingDiscount > 0 && <div className="flex justify-between text-plum"><dt>Potongan ongkir</dt><dd>-{rupiah(order.shippingDiscount)}</dd></div>}
             <div className="flex justify-between border-t border-line pt-3 text-base font-semibold"><dt>Total</dt><dd>{rupiah(order.total)}</dd></div>
           </dl>
@@ -123,7 +170,7 @@ export function OrderDetail({ order, isNew, viewer }: { order: Order; isNew: boo
           <section className="rounded-2xl border border-line bg-white p-5 text-sm" aria-labelledby="kirim">
             <h2 id="kirim" className="text-xl">Pengiriman</h2>
             <p className="mt-3 font-medium text-ink">{order.recipientName} · {order.phone}</p>
-            <p className="mt-1 text-muted">{order.street}, {order.district}, {order.city}, {order.province} {order.postalCode}</p>
+            <p className="mt-1 whitespace-pre-line text-muted">{formatAddress(order)}</p>
             <p className="mt-3 text-ink">{COURIER_NAMES[order.courierCode] ?? order.courierCode} {order.courierService}{order.courierEtd && <span className="text-muted"> · estimasi {order.courierEtd}</span>}</p>
             {order.trackingNumber ? (
               <p className="mt-2">No. resi: <a href="#lacak" className="font-mono font-semibold underline">{order.trackingNumber}</a></p>

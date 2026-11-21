@@ -51,9 +51,9 @@ async function Label({ params }: { params: Promise<{ id: string }> }) {
           <p className="text-[10px] font-bold uppercase">Penerima</p>
           <p className="text-sm font-bold">{order.recipientName}</p>
           <p className="font-semibold">{order.phone}</p>
-          <p>{order.street}</p>
-          <p>{order.district}, {order.city}</p>
-          <p>{order.province} <strong>{order.postalCode}</strong></p>
+          <p className="whitespace-pre-line">{order.street}</p>
+          {order.city && <p>{[order.district, order.city].filter(Boolean).join(", ")}</p>}
+          {order.province && <p>{order.province} <strong>{order.postalCode}</strong></p>}
         </section>
         <section className="border-b border-ink px-3 py-2">
           <p className="text-[10px] font-bold uppercase">Pengirim</p>
