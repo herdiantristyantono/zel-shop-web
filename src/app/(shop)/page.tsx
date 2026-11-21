@@ -7,10 +7,14 @@ import { ProductImage } from "@/components/ProductImage";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Stars } from "@/components/Stars";
 import { getCategories, getHomeData } from "@/lib/catalog";
+import { isWhatsAppCheckout } from "@/lib/checkout-mode";
 import { getStorefront } from "@/lib/settings";
 
 export default async function HomePage() {
   const [home, categories, { social }] = await Promise.all([getHomeData(), getCategories(), getStorefront()]);
+  const payment = isWhatsAppCheckout()
+    ? ["Pembayaran aman", "Transfer bank, QRIS & e-wallet setelah konfirmasi admin via WhatsApp"]
+    : ["Pembayaran aman", "QRIS, VA, e-wallet & kartu kredit"];
 
   return (
     <>
@@ -20,7 +24,7 @@ export default async function HomePage() {
         <ul className="container-page grid grid-cols-1 gap-4 py-5 text-sm sm:grid-cols-3">
           {[
             [TruckIcon, "Kirim ke seluruh Indonesia", "JNE, J&T, SiCepat, AnterAja, POS"],
-            [ShieldIcon, "Pembayaran aman", "QRIS, VA, e-wallet & kartu kredit"],
+            [ShieldIcon, ...payment],
             [ReturnIcon, "Garansi tukar", "Jika barang rusak atau salah kirim"],
           ].map(([Icon, title, sub]) => {
             const I = Icon as typeof TruckIcon;

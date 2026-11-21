@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import Link from "next/link";
+import { isWhatsAppCheckout } from "@/lib/checkout-mode";
 import { getStorefront } from "@/lib/settings";
 import { site } from "@/lib/site";
 import { InstagramIcon, TiktokIcon } from "./icons";
@@ -71,7 +72,11 @@ export async function Footer() {
       <div className="border-t border-blush/20">
         <div className="container-page flex flex-col gap-2 py-5 text-xs text-blush/80 sm:flex-row sm:justify-between">
           <p>© <Year /> Zel Shop. Semua hak dilindungi.</p>
-          <p>Pembayaran aman: QRIS · Virtual Account · GoPay · OVO · DANA · ShopeePay · Kartu Kredit</p>
+          <p>
+            {isWhatsAppCheckout()
+              ? "Pembayaran: Transfer bank · QRIS · E-wallet — dikonfirmasi admin via WhatsApp"
+              : "Pembayaran aman: QRIS · Virtual Account · GoPay · OVO · DANA · ShopeePay · Kartu Kredit"}
+          </p>
         </div>
       </div>
     </footer>
