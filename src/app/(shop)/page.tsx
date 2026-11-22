@@ -9,9 +9,10 @@ import { Stars } from "@/components/Stars";
 import { getCategories, getHomeData } from "@/lib/catalog";
 import { isWhatsAppCheckout } from "@/lib/checkout-mode";
 import { getStorefront } from "@/lib/settings";
+import { whatsappLink } from "@/lib/site";
 
 export default async function HomePage() {
-  const [home, categories, { social }] = await Promise.all([getHomeData(), getCategories(), getStorefront()]);
+  const [home, categories, { social, whatsapp }] = await Promise.all([getHomeData(), getCategories(), getStorefront()]);
   const payment = isWhatsAppCheckout()
     ? ["Pembayaran aman", "Transfer bank, QRIS & e-wallet setelah konfirmasi admin via WhatsApp"]
     : ["Pembayaran aman", "QRIS, VA, e-wallet & kartu kredit"];
@@ -98,15 +99,28 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className="container-page pt-14 text-center sm:pt-20">
-        <p className="eyebrow mb-3">Ikuti kami</p>
-        <h2 className="text-3xl sm:text-4xl">Inspirasi gaya setiap hari</h2>
-        <p className="mx-auto mt-3 max-w-md text-muted">Koleksi baru, tips padu padan, dan promo eksklusif lebih dulu di Instagram & TikTok kami.</p>
-        <div className="mt-6 flex justify-center gap-3">
-          <a href={social.instagram} target="_blank" rel="noopener noreferrer" className="btn-primary">Instagram</a>
-          <a href={social.tiktok} target="_blank" rel="noopener noreferrer" className="btn-outline">TikTok</a>
-        </div>
-      </section>
+      {social.instagram || social.tiktok ? (
+        <section className="container-page pt-14 text-center sm:pt-20">
+          <p className="eyebrow mb-3">Ikuti kami</p>
+          <h2 className="text-3xl sm:text-4xl">Inspirasi gaya setiap hari</h2>
+          <p className="mx-auto mt-3 max-w-md text-muted">
+            Koleksi baru, tips padu padan, dan promo eksklusif lebih dulu di {[social.instagram && "Instagram", social.tiktok && "TikTok"].filter(Boolean).join(" & ")} kami.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            {social.instagram && <a href={social.instagram} target="_blank" rel="noopener noreferrer" className="btn-primary">Instagram</a>}
+            {social.tiktok && <a href={social.tiktok} target="_blank" rel="noopener noreferrer" className={social.instagram ? "btn-outline" : "btn-primary"}>TikTok</a>}
+          </div>
+        </section>
+      ) : (
+        <section className="container-page pt-14 text-center sm:pt-20">
+          <p className="eyebrow mb-3">Butuh bantuan?</p>
+          <h2 className="text-3xl sm:text-4xl">Tanya langsung lewat WhatsApp</h2>
+          <p className="mx-auto mt-3 max-w-md text-muted">Tanya stok, warna, atau ukuran langsung ke admin kami. Kami bantu pilihkan dompet yang pas untuk Anda.</p>
+          <div className="mt-6 flex justify-center">
+            <a href={whatsappLink("Halo Zel Shop, saya mau tanya produk", whatsapp)} target="_blank" rel="noopener noreferrer" className="btn-primary">Chat via WhatsApp</a>
+          </div>
+        </section>
+      )}
     </>
   );
 }

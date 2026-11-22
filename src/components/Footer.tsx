@@ -43,16 +43,22 @@ export async function Footer() {
         <div className="space-y-4">
           <Logo light />
           <p className="max-w-xs text-sm leading-relaxed text-blush/90">{site.description}</p>
-          <div className="flex gap-2">
-            <a href={social.instagram} target="_blank" rel="noopener noreferrer" className="flex h-11 w-11 items-center justify-center rounded-full border border-blush/30 hover:bg-white/10" aria-label="Instagram Zel Shop">
-              <InstagramIcon size={20} />
-            </a>
-            <a href={social.tiktok} target="_blank" rel="noopener noreferrer" className="flex h-11 w-11 items-center justify-center rounded-full border border-blush/30 hover:bg-white/10" aria-label="TikTok Zel Shop">
-              <TiktokIcon size={20} />
-            </a>
-            <a href={social.shopee} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center rounded-full border border-blush/30 px-4 text-xs hover:bg-white/10">Shopee</a>
-            <a href={social.tokopedia} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center rounded-full border border-blush/30 px-4 text-xs hover:bg-white/10">Tokopedia</a>
-          </div>
+          {Object.values(social).some(Boolean) && (
+            <div className="flex gap-2">
+              {social.instagram && (
+                <a href={social.instagram} target="_blank" rel="noopener noreferrer" className="flex h-11 w-11 items-center justify-center rounded-full border border-blush/30 hover:bg-white/10" aria-label="Instagram Zel Shop">
+                  <InstagramIcon size={20} />
+                </a>
+              )}
+              {social.tiktok && (
+                <a href={social.tiktok} target="_blank" rel="noopener noreferrer" className="flex h-11 w-11 items-center justify-center rounded-full border border-blush/30 hover:bg-white/10" aria-label="TikTok Zel Shop">
+                  <TiktokIcon size={20} />
+                </a>
+              )}
+              {social.shopee && <a href={social.shopee} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center rounded-full border border-blush/30 px-4 text-xs hover:bg-white/10">Shopee</a>}
+              {social.tokopedia && <a href={social.tokopedia} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center rounded-full border border-blush/30 px-4 text-xs hover:bg-white/10">Tokopedia</a>}
+            </div>
+          )}
         </div>
         {groups.map((g) => (
           <div key={g.title}>

@@ -48,11 +48,12 @@ export async function getStorefront() {
   return {
     whatsapp: s.whatsappNumber || site.whatsapp,
     freeShippingMin: s.freeShippingMin,
+    // Hanya dari Admin → Pengaturan (null = belum punya akun, tautan disembunyikan)
     social: {
-      instagram: s.instagramUrl ?? site.social.instagram,
-      tiktok: s.tiktokUrl ?? site.social.tiktok,
-      shopee: s.shopeeUrl ?? site.social.shopee,
-      tokopedia: s.tokopediaUrl ?? site.social.tokopedia,
+      instagram: s.instagramUrl || null,
+      tiktok: s.tiktokUrl || null,
+      shopee: s.shopeeUrl || null,
+      tokopedia: s.tokopediaUrl || null,
     },
   };
 }
