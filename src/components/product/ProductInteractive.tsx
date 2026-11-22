@@ -182,7 +182,7 @@ function Gallery({ images, name }: { images: ProductDetail["gallery"]; name: str
   };
 
   return (
-    <div className="lg:sticky lg:top-40 lg:self-start">
+    <div className="lg:sticky lg:top-32 lg:self-start">
       <div className="relative -mx-4 sm:mx-0">
         <div
           ref={track}

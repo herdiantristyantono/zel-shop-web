@@ -40,7 +40,7 @@ async function CartContent() {
           <CartLineItem key={l.id} line={l} />
         ))}
       </ul>
-      <aside className="h-fit rounded-[var(--radius-card)] border border-line bg-white p-6 lg:sticky lg:top-40" aria-labelledby="ringkasan">
+      <aside className="h-fit rounded-[var(--radius-card)] border border-line bg-white p-6 lg:sticky lg:top-32" aria-labelledby="ringkasan">
         <h2 id="ringkasan" className="text-2xl">Ringkasan</h2>
         {remaining != null && (
           <div className="mt-4 rounded-xl bg-blush p-3 text-sm">

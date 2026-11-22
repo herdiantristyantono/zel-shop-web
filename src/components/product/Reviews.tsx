@@ -6,7 +6,7 @@ const dateFmt = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long"
 
 export function Reviews({ product }: { product: ProductDetail }) {
   return (
-    <section id="ulasan" className="scroll-mt-40" aria-labelledby="ulasan-title">
+    <section id="ulasan" className="scroll-mt-32" aria-labelledby="ulasan-title">
       <h2 id="ulasan-title" className="text-3xl">Ulasan Pembeli</h2>
       {product.ratingCount === 0 ? (
         <p className="mt-4 text-muted">Belum ada ulasan. Ulasan hanya dapat ditulis oleh pembeli terverifikasi setelah pesanan selesai.</p>

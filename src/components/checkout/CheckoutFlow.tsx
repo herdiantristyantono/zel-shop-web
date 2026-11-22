@@ -140,7 +140,7 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
 
   return (
     <div className="grid gap-10 lg:grid-cols-[1fr_380px]">
-      <div ref={topRef} className="min-w-0 scroll-mt-32">
+      <div ref={topRef} className="min-w-0 scroll-mt-24">
         <ol className="mb-8 flex items-center gap-2 text-sm" aria-label="Langkah checkout">
           {STEPS.map((s, i) => (
             <li key={s} className="flex items-center gap-2" aria-current={i === shownStep ? "step" : undefined}>
@@ -297,7 +297,7 @@ export function CheckoutFlow({ lines, subtotal, user, addresses, paymentMethods,
         )}
       </div>
 
-      <aside className="h-fit rounded-[var(--radius-card)] border border-line bg-white p-6 lg:sticky lg:top-40" aria-labelledby="ringkasan">
+      <aside className="h-fit rounded-[var(--radius-card)] border border-line bg-white p-6 lg:sticky lg:top-32" aria-labelledby="ringkasan">
         <h2 id="ringkasan" className="text-2xl">Pesanan Anda</h2>
         <ul className="mt-4 space-y-3">
           {lines.map((l) => (
