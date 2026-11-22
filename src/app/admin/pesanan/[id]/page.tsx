@@ -83,7 +83,7 @@ async function OrderAdmin({ params }: { params: Promise<{ id: string }> }) {
           </Card>
           <div className="grid gap-6 md:grid-cols-2">
             <Card title="Pembeli">
-              <p className="text-sm text-ink">{order.customerName}{order.user ? <Badge tone="plum">Member</Badge> : <span className="ml-2"><Badge>Tamu</Badge></span>}</p>
+              <p className="flex flex-wrap items-center gap-2 text-sm text-ink">{order.customerName}{order.user ? <Badge tone="plum">Member</Badge> : <Badge>Tamu</Badge>}</p>
               <p className="mt-1 text-sm text-muted">{order.email}</p>
               <a href={whatsappLink(`Halo ${order.customerName}, terkait pesanan ${order.orderNumber} di Zel Shop…`, order.phone.replace(/^0/, "62"))} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-9 items-center text-sm text-plum underline">
                 WhatsApp {order.phone}
