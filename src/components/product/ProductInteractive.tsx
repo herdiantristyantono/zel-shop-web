@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addToCart } from "@/actions/cart";
 import { track } from "../Analytics";
 import type { ProductDetail } from "@/lib/catalog";
@@ -23,19 +23,37 @@ export function ProductInteractive({ product, waNumber }: Props) {
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const variant = product.variants.find((v) => v.id === variantId);
 
-  // Foto warna terpilih tampil lebih dulu
+  // Semua foto dalam satu slider, urut sesuai urutan warna lalu foto umum.
+  // Menggeser foto memilih warnanya; memilih warna melompat ke fotonya.
   const images = useMemo(() => {
-    const own = product.gallery.filter((g) => g.variantId === variantId);
+    const byVariant = product.variants.flatMap((v) => product.gallery.filter((g) => g.variantId === v.id));
     const shared = product.gallery.filter((g) => !g.variantId);
-    return own.length ? [...own, ...shared] : product.gallery;
-  }, [product.gallery, variantId]);
+    return [...byVariant, ...shared];
+  }, [product.gallery, product.variants]);
+  const firstImageOf = (id: string | undefined) => images.findIndex((g) => g.variantId === id);
+  const [jump, setJump] = useState(() => ({ index: Math.max(0, firstImageOf(firstInStock?.id)), n: 0 }));
+
+  const selectVariant = (id: string) => {
+    if (id === variantId) return;
+    setVariantId(id);
+    setQty(1);
+    setFeedback(null);
+  };
 
   const stock = variant?.stock ?? 0;
   const price = variant?.priceOverride && !product.isFlashSale ? variant.priceOverride : product.price;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
-      <Gallery key={variantId} images={images} name={product.name} />
+      <Gallery
+        images={images}
+        name={product.name}
+        jump={jump}
+        onIndexChange={(i) => {
+          const id = images[i]?.variantId;
+          if (id) selectVariant(id);
+        }}
+      />
 
       <div className="lg:pt-2">
         <p className="eyebrow">{product.category.name}</p>
@@ -77,9 +95,9 @@ export function ProductInteractive({ product, waNumber }: Props) {
                   key={v.id}
                   type="button"
                   onClick={() => {
-                    setVariantId(v.id);
-                    setQty(1);
-                    setFeedback(null);
+                    selectVariant(v.id);
+                    const i = firstImageOf(v.id);
+                    if (i >= 0) setJump((j) => ({ index: i, n: j.n + 1 }));
                   }}
                   aria-pressed={selected}
                   aria-label={`${v.colorName}${v.stock === 0 ? " (stok habis)" : ""}`}
@@ -168,25 +186,54 @@ export function ProductInteractive({ product, waNumber }: Props) {
 
 const fmt = (n: number) => n.toLocaleString("id-ID");
 
-function Gallery({ images, name }: { images: ProductDetail["gallery"]; name: string }) {
+type GalleryProps = {
+  images: ProductDetail["gallery"];
+  name: string;
+  /** Lompat ke foto ini (n berubah setiap kali diminta, mis. saat warna dipilih). */
+  jump: { index: number; n: number };
+  onIndexChange: (index: number) => void;
+};
+
+function Gallery({ images, name, jump, onIndexChange }: GalleryProps) {
   const track = useRef<HTMLDivElement>(null);
+  const thumbs = useRef<HTMLUListElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(jump.index);
   const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
   const [bigZoom, setBigZoom] = useState(false);
 
-  const goto = (i: number) => {
+  const goto = (i: number, behavior: ScrollBehavior = "smooth") => {
     const el = track.current;
     if (!el) return;
-    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+    el.scrollTo({ left: i * el.clientWidth, behavior });
   };
 
+  // Lompat langsung (tanpa animasi) agar warna-warna di antaranya tidak ikut terpilih saat menggeser.
+  // Index ikut diperbarui oleh event onScroll yang dipicu lompatan ini.
+  useEffect(() => {
+    const el = track.current;
+    el?.scrollTo({ left: jump.index * el.clientWidth, behavior: "instant" });
+  }, [jump]);
+
+  // Thumbnail aktif selalu terlihat
+  useEffect(() => {
+    const el = thumbs.current?.children[index] as HTMLElement | undefined;
+    const list = thumbs.current;
+    if (el && list) list.scrollTo({ left: el.offsetLeft - list.clientWidth / 2 + el.clientWidth / 2, behavior: "smooth" });
+  }, [index]);
+
   return (
-    <div className="lg:sticky lg:top-32 lg:self-start">
+    // min-w-0: strip thumbnail (bisa puluhan foto) tidak boleh melebarkan kolom grid melebihi layar
+    <div className="min-w-0 lg:sticky lg:top-32 lg:self-start">
       <div className="relative -mx-4 sm:mx-0">
         <div
           ref={track}
-          onScroll={(e) => setIndex(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}
+          onScroll={(e) => {
+            const i = Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth);
+            if (i === index) return;
+            setIndex(i);
+            onIndexChange(i);
+          }}
           className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto sm:rounded-[var(--radius-card)]"
         >
           {images.map((img, i) => (
@@ -228,7 +275,7 @@ function Gallery({ images, name }: { images: ProductDetail["gallery"]; name: str
           </button>
         )}
       </div>
-      <ul className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
+      <ul ref={thumbs} className="no-scrollbar relative mt-3 flex gap-2 overflow-x-auto">
         {images.map((img, i) => (
           <li key={img.id} className="shrink-0">
             <button
