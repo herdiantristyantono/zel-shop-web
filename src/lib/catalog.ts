@@ -1,6 +1,7 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { Prisma } from "@/generated/prisma/client";
+import { isWhatsAppPageSlug, whatsappPageDefaults, whatsappPageSlug } from "./pages-whatsapp";
 import { prisma } from "./prisma";
 
 /** Tag cache — admin memanggil revalidateTag(...) setelah mengubah data. */
@@ -323,18 +324,27 @@ export async function suggest(q: string) {
 
 // ───────────── Halaman info ─────────────
 
-export async function getPage(slug: string) {
+/** whatsappMode: tampilkan versi halaman untuk CHECKOUT_MODE=whatsapp bila ada (lihat lib/pages-whatsapp). */
+export async function getPage(slug: string, whatsappMode = false) {
   "use cache";
   cacheLife("hours");
   cacheTag(TAGS.pages);
-  return prisma.page.findUnique({ where: { slug } });
+  if (isWhatsAppPageSlug(slug)) return null; // versi WhatsApp hanya diakses lewat slug biasa
+  const page = await prisma.page.findUnique({ where: { slug } });
+  if (!whatsappMode) return page;
+  const edited = await prisma.page.findUnique({ where: { slug: whatsappPageSlug(slug) } });
+  if (edited) return { ...edited, slug };
+  const fallback = whatsappPageDefaults[slug];
+  if (fallback) return { slug, ...fallback, updatedAt: page?.updatedAt ?? new Date(0) };
+  return page;
 }
 
 export async function getPageSlugs() {
   "use cache";
   cacheLife("hours");
   cacheTag(TAGS.pages);
-  return prisma.page.findMany({ select: { slug: true, updatedAt: true } });
+  const pages = await prisma.page.findMany({ select: { slug: true, updatedAt: true } });
+  return pages.filter((p) => !isWhatsAppPageSlug(p.slug));
 }
 
 function maskName(name: string) {

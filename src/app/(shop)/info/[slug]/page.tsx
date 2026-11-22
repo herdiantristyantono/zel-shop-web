@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Markdown } from "@/components/Markdown";
 import { getPage, getPageSlugs } from "@/lib/catalog";
+import { isWhatsAppCheckout } from "@/lib/checkout-mode";
 
 export async function generateStaticParams() {
   const pages = await getPageSlugs();
@@ -10,7 +11,7 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: PageProps<"/info/[slug]">): Promise<Metadata> {
-  const page = await getPage((await params).slug);
+  const page = await getPage((await params).slug, isWhatsAppCheckout());
   if (!page) return {};
   return { title: page.title, description: page.summary ?? undefined, alternates: { canonical: `/info/${page.slug}` } };
 }
@@ -24,7 +25,7 @@ export default function InfoPage({ params }: PageProps<"/info/[slug]">) {
 }
 
 async function InfoContent({ params }: { params: Promise<{ slug: string }> }) {
-  const page = await getPage((await params).slug);
+  const page = await getPage((await params).slug, isWhatsAppCheckout());
   if (!page) notFound();
   return (
     <article className="container-page max-w-3xl py-12 sm:py-16">

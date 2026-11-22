@@ -127,7 +127,9 @@ export function StoreSettingsForm({ initial, couriers, payments, whatsappMode = 
   );
 }
 
-export function PageEditor({ page }: { page: { slug: string; title: string; summary: string; content: string } }) {
+/** whatsappVersion: versi halaman untuk mode WhatsApp (slug `<slug>--whatsapp`); URL publik tetap /info/<slug>. */
+export function PageEditor({ page, whatsappVersion = false }: { page: { slug: string; title: string; summary: string; content: string }; whatsappVersion?: boolean }) {
+  const publicSlug = page.slug.replace(/--whatsapp$/, "");
   const [v, setV] = useState(page);
   const [open, setOpen] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -135,7 +137,10 @@ export function PageEditor({ page }: { page: { slug: string; title: string; summ
   return (
     <li className="rounded-xl border border-line bg-white p-4">
       <div className="flex items-center justify-between gap-2">
-        <span><span className="font-medium text-ink">{page.title}</span> <span className="font-mono text-xs text-muted">/info/{page.slug}</span></span>
+        <span>
+          <span className="font-medium text-ink">{page.title}</span> <span className="font-mono text-xs text-muted">/info/{publicSlug}</span>
+          {whatsappVersion && <span className="ml-2 rounded-full bg-blush px-2 py-0.5 text-xs text-plum">versi WhatsApp</span>}
+        </span>
         <button type="button" onClick={() => setOpen((o) => !o)} className="min-h-11 text-sm text-plum underline">{open ? "Tutup" : "Ubah"}</button>
       </div>
       {open && (
